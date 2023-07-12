@@ -3,12 +3,18 @@
 #include <string.h>
 #include <json-c/json.h>
 
-#include "neural.h"
+#include "nn.h"
+const size_t MAX_FILE_SIZE = 1<<29; // 0.5 GiB
 
 typedef struct Array {
     double *data;
     size_t shape[2];
 } Array;
+
+Layer neural[] = {
+    [0] = {.neurons = 3, .activation = relu},
+    [1] = {.neurons = 1, .activation = sigmoid},
+};
 
 static Array json_read(const char *filepath);
 
@@ -28,6 +34,9 @@ Array json_read(const char *filepath)
 
     fp_size = ftell(fp);
     if (fp_size == -1) goto json_read_error;
+    if (fp_size >= MAX_FILE_SIZE) {
+        fprintf(stderr, "ftell Error(): '%s' size greater than '%zu'\n", filepath, MAX_FILE_SIZE);
+    }
     rewind(fp);
 
     fp_buffer = calloc(sizeof(char), fp_size);
@@ -67,14 +76,9 @@ json_read_error:
 
 int main(void) {
     Array json_data = json_read("data/housing_rent.json");
-    printf("area\tlong\tlat\tprice\n");
-    for (int i = 0; i < json_data.shape[0]; i++) {
-        printf("%3.1lf\t%3.2lf\t%3.2lf\t%lf\n",
-                json_data.data[4*i],
-                json_data.data[4*i + 1],
-                json_data.data[4*i + 2],
-                json_data.data[4*i + 3]);
-    }
+    nn_layer_init_weights(neural, 2, 3);
+    printf("%lf\n", neural[0].weights[0]);
+    nn_layer_free_weights(neural, 2);
     free(json_data.data);
     return 0;
 }

@@ -5,7 +5,7 @@ OBJDIR 	= objs
 SRC 	= $(wildcard src/*.c)
 HEADERS = $(wildcard src/*.h)
 OBJS 	= $(SRC:src/%.c=${OBJDIR}/%.o) 
-DLIBS 	= -ljson-c
+DLIBS 	= -ljson-c -lm
 .PHONY: clean all run
 
 all: build
