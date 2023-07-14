@@ -15,7 +15,7 @@ typedef struct Layer {
     size_t neurons, input_nodes;
 } Layer;
 
-void nn_layer_init_weights(Layer *layer, size_t nmemb, size_t input_size);
+void nn_layer_init_weights(Layer *layer, size_t nmemb, size_t input_cols);
 void nn_layer_free_weights(Layer *layer, size_t nmemb);
 
 double * nn_layer_forward(Layer layer, double *input, size_t input_shape[2]); //TODO

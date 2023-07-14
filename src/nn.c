@@ -18,10 +18,10 @@ double * nn_layer_forward(Layer layer, double *input, size_t input_shape[2])
     }
 
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                input_shape[0], layer.neurons, layer.input_nodes,
-                1.0, input, input_shape[1], //alpha A
-                layer.weights, layer.neurons, // B
-                1.0, out, layer.neurons);
+                input_shape[0], layer.neurons, layer.input_nodes, // m, n, k
+                1.0, input, input_shape[1], //alpha X
+                layer.weights, layer.neurons, // W
+                1.0, out, layer.neurons); // beta B
     return out;
 }
 

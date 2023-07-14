@@ -14,15 +14,22 @@ typedef struct Array {
 
 #define ARRAY_SIZE(x, type) sizeof(x) / sizeof(type)
 Layer neural[] = {
-    {.neurons = 3, .activation = relu},
+    {.neurons = 5, .activation = relu},
     {.neurons = 1, .activation = sigmoid},
 };
 
-static Array json_read(const char *filepath);
+static void json_read(const char *filepath,
+                      Array *input, Array *out,
+                      char *out_key,
+                      char *in_keys[],
+                      size_t in_keys_size);
 
-Array json_read(const char *filepath)
+void json_read(const char *filepath,
+               Array *input, Array *out,
+               char *out_key,
+               char *in_keys[],
+               size_t n_input_keys)
 {
-    Array out;
     FILE *fp;
     char *fp_buffer;
     size_t ret;
@@ -55,21 +62,27 @@ Array json_read(const char *filepath)
     json_obj = json_tokener_parse(fp_buffer);
     size_t json_obj_length = json_object_array_length(json_obj);
 
-    out.shape[0] = (size_t)json_obj_length;
-    out.shape[1] = 4;
-    out.data = calloc(out.shape[0] * out.shape[1], sizeof(out.data[0]));
+    input->shape[0] = (size_t)json_obj_length;
+    input->shape[1] = n_input_keys;
+    input->data = calloc(input->shape[0] * input->shape[1], sizeof(input->data[0]));
+
+    out->shape[0] = (size_t)json_obj_length;
+    out->shape[1] = 1;
+    out->data = calloc(out->shape[0] * out->shape[1], sizeof(out->data[0]));
 
     for (int i = 0; i < json_object_array_length(json_obj); i++) {
         json_object *item = json_object_array_get_idx(json_obj, i);
-        out.data[4*i] = json_object_get_double(json_object_object_get(item, "area"));
-        out.data[4*i + 1] = json_object_get_double(json_object_object_get(item, "longitude"));
-        out.data[4*i + 2] = json_object_get_double(json_object_object_get(item, "latitude"));
-        out.data[4*i + 3] = json_object_get_double(json_object_object_get(item, "price"));
+
+        out->data[i] = json_object_get_double(json_object_object_get(item, out_key));
+        for (int j = 0; j < n_input_keys; j++) {
+            input->data[n_input_keys * i + j] = json_object_get_double(json_object_object_get(item, in_keys[j]));
+        }
     }
 
     json_object_put(json_obj);
     fclose(fp);
-    return out;
+
+    return;
 
 json_read_error:
     perror("json_read() Error");
@@ -77,25 +90,34 @@ json_read_error:
 }
 
 int main(void) {
-    Array json_data = json_read("data/test.json");
-    nn_layer_init_weights(neural, ARRAY_SIZE(neural, Layer), 4);
+    Array X, y;
+    char *in_keys[] = {"area", "longitude", "latitude"};
+    json_read("data/test.json", &X, &y, "price", in_keys, ARRAY_SIZE(in_keys, char *));
 
-    printf("neurons: %zu\n", neural[0].neurons);
-    printf("input_notes: %zu\n", neural[0].input_nodes);
+    nn_layer_init_weights(neural, ARRAY_SIZE(neural, Layer), X.shape[1]);
+    double *out = nn_layer_forward(neural[0], X.data, X.shape);
 
-    double *out = nn_layer_forward(neural[0], json_data.data, json_data.shape);
-    printf("rows: %zu\n", json_data.shape[0]);
-    printf("cols: %zu\n", neural[0].neurons);
+    printf("area\tlat\tlong\t| price\n");
+    for (size_t i = 0; i < X.shape[0]; i++) {
+        for (size_t j = 0; j < X.shape[1]; j++) {
+            size_t index = X.shape[1] * i + j;
+            printf("%.2lf\t", X.data[index]);
+        }
+        printf("| %.2lf\n", y.data[i]);
+    }
 
-    for (size_t i = 0; i < neural[0].input_nodes; i++) {
+    printf("---\n");
+    for (size_t i = 0; i < X.shape[0]; i++) {
         for (size_t j = 0; j < neural[0].neurons; j++) {
-            size_t index = i * neural[0].neurons + j;
-            printf("%4.2lf\t", out[index]);
+            size_t index = neural[0].neurons * i + j;
+            printf("%.2lf\t", out[index]);
         }
         printf("\n");
     }
-    nn_layer_free_weights(neural, 2);
+
+
+    nn_layer_free_weights(neural, ARRAY_SIZE(neural, Layer));
     free(out);
-    free(json_data.data);
-    return 0;
+    free(X.data);
+    free(y.data);
 }
