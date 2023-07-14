@@ -1,11 +1,11 @@
-CC 		= gcc
+CC 		= clang
 CFLAGS 	= -std=c11 -Wall -g
 BIN 	= ml
 OBJDIR 	= objs
 SRC 	= $(wildcard src/*.c)
 HEADERS = $(wildcard src/*.h)
 OBJS 	= $(SRC:src/%.c=${OBJDIR}/%.o) 
-DLIBS 	= -ljson-c -lm
+DLIBS 	= -lm $(shell pkg-config --libs-only-l blas json-c)
 .PHONY: clean all run
 
 all: build

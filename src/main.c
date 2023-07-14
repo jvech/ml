@@ -4,6 +4,7 @@
 #include <json-c/json.h>
 
 #include "nn.h"
+
 const size_t MAX_FILE_SIZE = 1<<29; // 0.5 GiB
 
 typedef struct Array {
@@ -11,9 +12,10 @@ typedef struct Array {
     size_t shape[2];
 } Array;
 
+#define ARRAY_SIZE(x, type) sizeof(x) / sizeof(type)
 Layer neural[] = {
-    [0] = {.neurons = 3, .activation = relu},
-    [1] = {.neurons = 1, .activation = sigmoid},
+    {.neurons = 3, .activation = relu},
+    {.neurons = 1, .activation = sigmoid},
 };
 
 static Array json_read(const char *filepath);
@@ -75,10 +77,25 @@ json_read_error:
 }
 
 int main(void) {
-    Array json_data = json_read("data/housing_rent.json");
-    nn_layer_init_weights(neural, 2, 3);
-    printf("%lf\n", neural[0].weights[0]);
+    Array json_data = json_read("data/test.json");
+    nn_layer_init_weights(neural, ARRAY_SIZE(neural, Layer), 4);
+
+    printf("neurons: %zu\n", neural[0].neurons);
+    printf("input_notes: %zu\n", neural[0].input_nodes);
+
+    double *out = nn_layer_forward(neural[0], json_data.data, json_data.shape);
+    printf("rows: %zu\n", json_data.shape[0]);
+    printf("cols: %zu\n", neural[0].neurons);
+
+    for (size_t i = 0; i < neural[0].input_nodes; i++) {
+        for (size_t j = 0; j < neural[0].neurons; j++) {
+            size_t index = i * neural[0].neurons + j;
+            printf("%4.2lf\t", out[index]);
+        }
+        printf("\n");
+    }
     nn_layer_free_weights(neural, 2);
+    free(out);
     free(json_data.data);
     return 0;
 }

@@ -2,27 +2,51 @@
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
 
-void nn_layer_init_weights(Layer layer[], size_t nmemb, size_t n_inputs)
+double * nn_layer_forward(Layer layer, double *input, size_t input_shape[2])
+{
+    double *out = calloc(input_shape[0] * layer.neurons, sizeof(double));
+    if (out == NULL) {
+        perror("nn_layer_forward() Error");
+        exit(1);
+    }
+
+    for (size_t i = 0; i < input_shape[0]; i++) {
+        for (size_t j = 0; j < layer.neurons; j++) {
+            size_t index = layer.neurons * i + j;
+            out[index] = layer.bias[j];
+        }
+    }
+
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+                input_shape[0], layer.neurons, layer.input_nodes,
+                1.0, input, input_shape[1], //alpha A
+                layer.weights, layer.neurons, // B
+                1.0, out, layer.neurons);
+    return out;
+}
+
+void nn_layer_init_weights(Layer layers[], size_t nmemb, size_t n_inputs)
 {
     int i;
     size_t prev_size = n_inputs;
 
 
     for (i = 0; i < nmemb;  i++) {
-        layer[i].weights = calloc(prev_size * layer[i].neurons, sizeof(Layer));
-        layer[i].bias = calloc(prev_size, sizeof(Layer));
+        layers[i].weights = calloc(prev_size * layers[i].neurons, sizeof(Layer));
+        layers[i].bias = calloc(layers[i].neurons, sizeof(Layer));
 
-        if (layer[i].weights == NULL || layer[i].bias == NULL) {
-            goto nn_layer_calloc_weights_error;
+        if (layers[i].weights == NULL || layers[i].bias == NULL) {
+            goto nn_layers_calloc_weights_error;
         }
-        fill_random_weights(layer[i].weights, layer[i].bias, prev_size, layer[i].neurons);
-        prev_size = layer[i].neurons;
+        fill_random_weights(layers[i].weights, layers[i].bias, prev_size, layers[i].neurons);
+        layers[i].input_nodes = prev_size;
+        prev_size = layers[i].neurons;
     }
 
     return;
 
-nn_layer_calloc_weights_error:
-    perror("nn_layer_calloc_weights() Error");
+nn_layers_calloc_weights_error:
+    perror("nn_layers_calloc_weights() Error");
     exit(1);
 }
 
@@ -30,13 +54,8 @@ void nn_layer_free_weights(Layer *layer, size_t nmemb)
 {
     for (int i = 0; i < nmemb; i++) {
         free(layer[i].weights);
+        free(layer[i].bias);
     }
-}
-
-double * nn_layer_forward(Layer layer, double *input, size_t input_shape[2])
-{
-    double *out = NULL;
-    return out;
 }
 
 double sigmoid(double x)
