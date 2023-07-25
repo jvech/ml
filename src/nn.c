@@ -2,11 +2,12 @@
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
 
-double * nn_layer_forward(Layer layer, double *input, size_t input_shape[2])
+void nn_layer_forward(Layer layer, double *out, size_t out_shape[2], double *input, size_t input_shape[2])
 {
-    double *out = calloc(input_shape[0] * layer.neurons, sizeof(double));
-    if (out == NULL) {
-        perror("nn_layer_forward() Error");
+    if (out_shape[0] != input_shape[0] || out_shape[1] != layer.neurons) {
+        fprintf(stderr,
+                "nn_layer_forward() Error: out must have (%zu x %zu) dimensions not (%zu x %zu)\n",
+                input_shape[0], layer.neurons, out_shape[0], out_shape[1]);
         exit(1);
     }
 
@@ -22,7 +23,13 @@ double * nn_layer_forward(Layer layer, double *input, size_t input_shape[2])
                 1.0, input, input_shape[1], //alpha X
                 layer.weights, layer.neurons, // W
                 1.0, out, layer.neurons); // beta B
-    return out;
+
+    for (size_t i = 0; i < input_shape[0]; i++) {
+        for (size_t j = 0; j < layer.neurons; j ++) {
+            size_t index = layer.neurons * i + j;
+            out[index] = layer.activation(out[index]);
+        }
+    }
 }
 
 void nn_layer_init_weights(Layer layers[], size_t nmemb, size_t n_inputs)
@@ -56,6 +63,11 @@ void nn_layer_free_weights(Layer *layer, size_t nmemb)
         free(layer[i].weights);
         free(layer[i].bias);
     }
+}
+
+double identity(double x)
+{
+    return x;
 }
 
 double sigmoid(double x)

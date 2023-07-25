@@ -1,0 +1,17 @@
+digraph abc {
+    node [shape=circle, size=0.2];
+    rankdir=LR;
+
+    x₁ -> a₁[label = w¹];
+    x₁ -> {a₂ a₃};
+    x₂ -> {a₁ a₂ a₃};
+
+    a₁ -> d₁[label = w²];
+    a₁ -> d₂;
+    a₂ -> {d₁ d₂};
+    a₃ -> {d₁ d₂};
+
+    subgraph {rank=source; x₁; x₂};
+    subgraph {rank=same; a₁; a₂; a₃};
+    subgraph {rank=sink; d₁; d₂};
+}
