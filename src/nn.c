@@ -32,7 +32,7 @@ void nn_layer_forward(Layer layer, double *out, size_t out_shape[2], double *inp
     }
 }
 
-void nn_layer_init_weights(Layer layers[], size_t nmemb, size_t n_inputs)
+void nn_network_init_weights(Layer layers[], size_t nmemb, size_t n_inputs)
 {
     int i;
     size_t prev_size = n_inputs;
@@ -57,11 +57,11 @@ nn_layers_calloc_weights_error:
     exit(1);
 }
 
-void nn_layer_free_weights(Layer *layer, size_t nmemb)
+void nn_network_free_weights(Layer layers[], size_t nmemb)
 {
     for (int i = 0; i < nmemb; i++) {
-        free(layer[i].weights);
-        free(layer[i].bias);
+        free(layers[i].weights);
+        free(layers[i].bias);
     }
 }
 
@@ -87,10 +87,10 @@ void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols
 
     size_t weights_size = rows * cols;
     int64_t *random_weights = calloc(weights_size, sizeof(int64_t));
-    int64_t *random_bias = calloc(rows, sizeof(int64_t));
+    int64_t *random_bias = calloc(cols, sizeof(int64_t));
 
-    fread(random_weights, sizeof(double), weights_size, fp);
-    fread(random_bias, sizeof(double), rows, fp);
+    fread(random_weights, sizeof(int64_t), weights_size, fp);
+    fread(random_bias, sizeof(int64_t), cols, fp);
 
     if (!random_weights || !random_bias) goto nn_fill_random_weights_error;
 
@@ -98,7 +98,7 @@ void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols
         weights[i] = (double)random_weights[i] / (double)INT64_MAX * 2;
     }
 
-    for (size_t i = 0; i < weights_size; i++) {
+    for (size_t i = 0; i < cols; i++) {
         bias[i] = (double)random_bias[i] / (double)INT64_MAX * 2; 
     }
 
