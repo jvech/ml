@@ -2,6 +2,24 @@
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
 
+void nn_forward(
+        double **out,
+        double *X, size_t X_shape[2],
+        Layer network[], size_t network_size)
+{
+    size_t in_shape[2] = {X_shape[0], X_shape[1]};
+    size_t out_shape[2];
+    out_shape[0] = X_shape[0];
+    double *input = X;
+
+    for (size_t l = 0; l < network_size; l++) {
+        out_shape[1] = network[l].neurons;
+        nn_layer_forward(network[l], out[l], out_shape, input, in_shape);
+        in_shape[1] = out_shape[1];
+        input = out[l];
+    }
+}
+
 void nn_layer_forward(Layer layer, double *out, size_t out_shape[2], double *input, size_t input_shape[2])
 {
     if (out_shape[0] != input_shape[0] || out_shape[1] != layer.neurons) {

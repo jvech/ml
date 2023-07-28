@@ -13,10 +13,6 @@ typedef struct Array {
 } Array;
 
 #define ARRAY_SIZE(x, type) sizeof(x) / sizeof(type)
-Layer neural[] = {
-    {.neurons = 5, .activation = relu},
-    {.neurons = 1, .activation = sigmoid},
-};
 
 static void json_read(const char *filepath,
                       Array *input, Array *out,
@@ -30,8 +26,8 @@ void json_read(const char *filepath,
                char *in_keys[],
                size_t n_input_keys)
 {
-    FILE *fp;
-    char *fp_buffer;
+    FILE *fp = NULL;
+    char *fp_buffer = NULL;
     size_t ret;
     int64_t fp_size;
 
@@ -90,34 +86,31 @@ json_read_error:
 }
 
 int main(void) {
+    Layer network[] = {
+        {.neurons = 5, .activation = relu},
+        {.neurons = 1, .activation = sigmoid},
+    };
     Array X, y;
     char *in_keys[] = {"area", "longitude", "latitude"};
     json_read("data/test.json", &X, &y, "price", in_keys, ARRAY_SIZE(in_keys, char *));
 
-    nn_layer_init_weights(neural, ARRAY_SIZE(neural, Layer), X.shape[1]);
-    double *out = nn_layer_forward(neural[0], X.data, X.shape);
+    size_t network_size = ARRAY_SIZE(network, Layer);
+    nn_network_init_weights(network, network_size, 3);
+    double **outputs = calloc(network_size, sizeof(double *));
 
-    printf("area\tlat\tlong\t| price\n");
-    for (size_t i = 0; i < X.shape[0]; i++) {
-        for (size_t j = 0; j < X.shape[1]; j++) {
-            size_t index = X.shape[1] * i + j;
-            printf("%.2lf\t", X.data[index]);
-        }
-        printf("| %.2lf\n", y.data[i]);
-    }
+    size_t out_rows = X.shape[0];//
+    for (size_t l = 0; l < network_size; l++) {//
+        outputs[l] = calloc(network[l].neurons * out_rows, sizeof(double));//
+    } //
 
-    printf("---\n");
-    for (size_t i = 0; i < X.shape[0]; i++) {
-        for (size_t j = 0; j < neural[0].neurons; j++) {
-            size_t index = neural[0].neurons * i + j;
-            printf("%.2lf\t", out[index]);
-        }
-        printf("\n");
-    }
+    nn_forward(outputs, X.data, X.shape, network, network_size);
 
+    for (size_t l = 0; l < network_size; l++) free(outputs[l]);
+    free(outputs);
 
-    nn_layer_free_weights(neural, ARRAY_SIZE(neural, Layer));
-    free(out);
+    nn_network_free_weights(network, network_size);
     free(X.data);
     free(y.data);
+
+    
 }

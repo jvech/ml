@@ -24,4 +24,7 @@ void nn_layer_backward(Layer *layer, double *out, size_t out_shape[2]); //TODO
 double sigmoid(double x);
 double relu(double x);
 double identity(double x);
+
+
+void nn_forward(double **out, double *input, size_t input_shape[2], Layer network[], size_t network_size);
 #endif
