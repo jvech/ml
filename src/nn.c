@@ -39,8 +39,8 @@ void nn_network_init_weights(Layer layers[], size_t nmemb, size_t n_inputs)
 
 
     for (i = 0; i < nmemb;  i++) {
-        layers[i].weights = calloc(prev_size * layers[i].neurons, sizeof(Layer));
-        layers[i].bias = calloc(layers[i].neurons, sizeof(Layer));
+        layers[i].weights = calloc(prev_size * layers[i].neurons, sizeof(double));
+        layers[i].bias = calloc(layers[i].neurons, sizeof(double));
 
         if (layers[i].weights == NULL || layers[i].bias == NULL) {
             goto nn_layers_calloc_weights_error;
