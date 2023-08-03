@@ -2,6 +2,24 @@
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
 
+void nn_layer_backward(
+        double *weights, size_t weigths_shape[2],
+        double *delta, size_t delta_cols,
+        double *out_prev, size_t out_cols,
+        Layer layer, double alpha)
+{
+    assert(out_cols == weigths_shape[0] && "out_cols does not match with weight rows");
+    assert(delta_cols == weigths_shape[1] && "delta_cols does not match with weight cols");
+
+    for (size_t i = 0; i < weigths_shape[0]; i++) {
+        for (size_t j = 0; j < weigths_shape[0]; j++) {
+            size_t index = weigths_shape[1] * i + j;
+            double dcost_w = delta[j] * out_prev[i];
+            weights[index] = layer.weights[index] + alpha * dcost_w;
+        }
+    }
+}
+
 void nn_layer_hidden_delta(
         double *delta, size_t delta_cols,
         double *delta_next, size_t delta_next_cols,
