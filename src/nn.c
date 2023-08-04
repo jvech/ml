@@ -2,17 +2,67 @@
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
 
+void nn_backward(
+        double **weights,
+        double **Zout, double **Outs,
+        double *Input, size_t input_shape[2],
+        double *Labels, size_t labels_shape[2],
+        Layer network[], size_t network_size,
+        double (dcost_out_func)(double, double),
+        double alpha)
+{
+    size_t max_neurons = 0;
+    for (size_t l = 0; l < network_size; l++) {
+        max_neurons = (max_neurons > network[l].neurons) ? max_neurons : network[l].neurons;
+    }
+    double *dcost_out = calloc(labels_shape[0] * labels_shape[1], sizeof(double));
+    double *delta = calloc(max_neurons, sizeof(double));
+    double *delta_next = calloc(max_neurons, sizeof(double));
+
+    for (size_t i = 0; i < labels_shape[0]; i++) {
+        for (size_t j = 0; j < labels_shape[0]; j++) {
+            size_t index = i * labels_shape[1] + j;
+            dcost_out[index] = dcost_out_func(Labels[index], Outs[network_size - 1][index]);
+        }
+    }
+
+    for (size_t sample = 0; sample < input_shape[0]; sample++) {
+        for (size_t l = network_size - 1; l >= 0; l--) {
+            size_t weigths_shape[2] = {network[l].input_nodes, network[l].neurons};
+            if (l == network_size - 1) {
+                double *zout = Zout[l] + sample * network[l].neurons;
+                double *out_prev = Outs[l - 1] + sample * network[l-1].neurons;
+                nn_layer_out_delta(delta, dcost_out, zout, network[l].neurons, network[l].activation_derivative);
+                nn_layer_backward(weights[l], weigths_shape, delta, out_prev, network[l], alpha);
+            } else if (l == 0) {
+                size_t weigths_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
+                double *zout = Zout[l] + sample * network[l].neurons;
+                double *input = Input + sample * input_shape[1];
+                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation_derivative);
+                nn_layer_backward(weights[l], weigths_shape, delta, input, network[l], alpha);
+            } else {
+                size_t weigths_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
+                double *zout = Zout[l] + sample * network[l].neurons;
+                double *out_prev = Outs[l - 1] + sample * network[l-1].neurons;
+                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation_derivative);
+                nn_layer_backward(weights[l], weigths_shape, delta, out_prev, network[l], alpha);
+            }
+            memcpy(delta_next, delta, weigths_shape[1] * sizeof(double));
+        }
+    }
+
+    free(dcost_out);
+    free(delta);
+    free(delta_next);
+}
+
 void nn_layer_backward(
         double *weights, size_t weigths_shape[2],
-        double *delta, size_t delta_cols,
-        double *out_prev, size_t out_cols,
+        double *delta, double *out_prev,
         Layer layer, double alpha)
 {
-    assert(out_cols == weigths_shape[0] && "out_cols does not match with weight rows");
-    assert(delta_cols == weigths_shape[1] && "delta_cols does not match with weight cols");
-
     for (size_t i = 0; i < weigths_shape[0]; i++) {
-        for (size_t j = 0; j < weigths_shape[0]; j++) {
+        for (size_t j = 0; j < weigths_shape[1]; j++) {
             size_t index = weigths_shape[1] * i + j;
             double dcost_w = delta[j] * out_prev[i];
             weights[index] = layer.weights[index] + alpha * dcost_w;
@@ -21,20 +71,14 @@ void nn_layer_backward(
 }
 
 void nn_layer_hidden_delta(
-        double *delta, size_t delta_cols,
-        double *delta_next, size_t delta_next_cols,
+        double *delta, double *delta_next, double *zout,
         double *weigths_next, size_t weigths_shape[2],
-        double *zout, size_t zout_cols,
         double (*activation_derivative)(double))
 {
-    assert(delta_cols == zout_cols);
-    assert(delta_cols == weigths_shape[0]);
-    assert(delta_next_cols == weigths_shape[1]);
-
-    for (size_t j = 0; j < delta_cols; j++) {
+    for (size_t j = 0; j < weigths_shape[0]; j++) {
         double sum = 0;
-        for (size_t k = 0; k < delta_next_cols; k++) {
-            size_t index = j * delta_cols + k;
+        for (size_t k = 0; k < weigths_shape[1]; k++) {
+            size_t index = j * weigths_shape[1] + k;
             sum += delta_next[k] * weigths_next[index];
         }
         delta[j] = sum * activation_derivative(zout[j]);
@@ -42,15 +86,12 @@ void nn_layer_hidden_delta(
 }
 
 void nn_layer_out_delta(
-        double *delta, size_t delta_cols,
-        double *error, size_t error_cols,
-        double *zout, size_t zout_cols,
+        double *delta, double *error, double *zout,
+        size_t cols,
         double (*activation_derivative)(double))
 {
-    assert(delta_cols == error_cols);
-    assert(zout_cols == error_cols);
 
-    for (size_t i = 0; i < delta_cols; i++) {
+    for (size_t i = 0; i < cols; i++) {
         delta[i] = error[i] * activation_derivative(zout[i]);
     }
 }
@@ -163,6 +204,10 @@ double sigmoid(double x)
 double relu(double x)
 {
     return (x > 0) ? x : 0;
+}
+
+double derivative_relu(double x) {
+    return (x > 0) ? 1 : 0;
 }
 
 void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols)
