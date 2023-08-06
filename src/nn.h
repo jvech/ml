@@ -10,10 +10,14 @@
 #include <unistd.h>
 #include <openblas/cblas.h>
 
+struct Activation {
+    double (*func)(double);
+    double (*dfunc)(double);
+};
+
 typedef struct Layer {
     double *weights, *bias;
-    double (*activation)(double x);
-    double (*activation_derivative)(double x);
+    struct Activation activation;
     size_t neurons, input_nodes;
 } Layer;
 

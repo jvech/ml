@@ -2,6 +2,21 @@
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
 
+double relu(double x);
+double drelu(double x);
+double sigmoid(double x);
+double dsigmoid(double x);
+
+struct Activation NN_RELU = {
+    .func = relu,
+    .dfunc = drelu
+};
+
+struct Activation NN_SIGMOID = {
+    .func = sigmoid,
+    .dfunc = dsigmoid
+};
+
 void nn_backward(
         double **weights, double **bias,
         double **Zout, double **Outs,
@@ -34,20 +49,20 @@ void nn_backward(
             if (l == network_size - 1) {
                 double *zout = Zout[l] + sample * network[l].neurons;
                 double *out_prev = Outs[l - 1] + sample * network[l-1].neurons;
-                nn_layer_out_delta(delta, dcost_out, zout, network[l].neurons, network[l].activation_derivative);
+                nn_layer_out_delta(delta, dcost_out, zout, network[l].neurons, network[l].activation.dfunc);
                 nn_layer_backward(weights[l], bias[l], weigths_shape, delta, out_prev, network[l], alpha);
             } else if (l == 0) {
                 size_t weigths_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
                 double *zout = Zout[l] + sample * network[l].neurons;
                 double *input = Input + sample * input_shape[1];
-                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation_derivative);
+                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation.dfunc);
                 nn_layer_backward(weights[l], bias[l], weigths_shape, delta, input, network[l], alpha);
                 break;
             } else {
                 size_t weigths_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
                 double *zout = Zout[l] + sample * network[l].neurons;
                 double *out_prev = Outs[l - 1] + sample * network[l-1].neurons;
-                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation_derivative);
+                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation.dfunc);
                 nn_layer_backward(weights[l], bias[l], weigths_shape, delta, out_prev, network[l], alpha);
             }
             memcpy(delta_next, delta, weigths_shape[1] * sizeof(double));
@@ -119,7 +134,7 @@ void nn_forward(
     for (size_t l = 0; l < network_size; l++) {
         out_shape[1] = network[l].neurons;
         nn_layer_forward(network[l], zout[l], out_shape, input, in_shape);
-        nn_layer_map_activation(network[l].activation, out[l], out_shape, zout[l], out_shape);
+        nn_layer_map_activation(network[l].activation.func, out[l], out_shape, zout[l], out_shape);
         in_shape[1] = out_shape[1];
         input = out[l];
     }
@@ -201,25 +216,6 @@ void nn_network_free_weights(Layer layers[], size_t nmemb)
     }
 }
 
-double identity(double x)
-{
-    return x;
-}
-
-double sigmoid(double x)
-{
-    return 1 / (1 + exp(-x));
-}
-
-double relu(double x)
-{
-    return (x > 0) ? x : 0;
-}
-
-double derivative_relu(double x) {
-    return (x > 0) ? 1 : 0;
-}
-
 void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols)
 {
     FILE *fp = fopen("/dev/random", "rb");
@@ -250,4 +246,23 @@ void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols
 nn_fill_random_weights_error:
     perror("nn_fill_random_weights Error()");
     exit(1);
+}
+
+double sigmoid(double x)
+{
+    return 1 / (1 + exp(-x));
+}
+
+double dsigmoid(double x)
+{
+    return sigmoid(x) * (1 - sigmoid(x));
+}
+
+double relu(double x)
+{
+    return (x > 0) ? x : 0;
+}
+
+double drelu(double x) {
+    return (x > 0) ? 1 : 0;
 }
