@@ -37,7 +37,7 @@ void nn_forward(
         Layer network[], size_t network_size);
 
 void nn_backward(
-        double **weights,
+        double **weights, double **bias,
         double **zout, double **outs,
         double *input, size_t input_shape[2],
         double *labels, size_t labels_shape[2],
@@ -51,7 +51,7 @@ void nn_layer_forward(
         double *input, size_t input_shape[2]);
 
 void nn_layer_backward(
-        double *weights, size_t weigths_shape[2],
+        double *weights, double *bias, size_t weigths_shape[2],
         double *delta, double *out_prev,
         Layer layer, double alpha);
 
