@@ -19,6 +19,8 @@ void nn_backward(
     double *delta = calloc(max_neurons, sizeof(double));
     double *delta_next = calloc(max_neurons, sizeof(double));
 
+    if (!dcost_out || !delta || !delta_next) goto nn_backward_error;
+
     for (size_t i = 0; i < labels_shape[0]; i++) {
         for (size_t j = 0; j < labels_shape[0]; j++) {
             size_t index = i * labels_shape[1] + j;
@@ -55,6 +57,10 @@ void nn_backward(
     free(dcost_out);
     free(delta);
     free(delta_next);
+
+nn_backward_error:
+    perror("nn_backward() Error");
+    exit(1);
 }
 
 void nn_layer_backward(
