@@ -1,13 +1,37 @@
 #include "nn.h"
 
 static void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols);
-static double get_avg_loss(double labels[], double outs[], size_t shape[2], double (*loss)(double, double));
+static double get_avg_loss(
+        double labels[], double outs[], size_t shape[2],
+        double (*loss)(double *, double *, size_t));
 
 
+double square_loss(double labels[], double net_outs[], size_t shape);
+double square_dloss_out(double labels, double net_out);
+
+double leaky_relu(double x);
+double dleaky_relu(double x);
 double relu(double x);
 double drelu(double x);
 double sigmoid(double x);
 double dsigmoid(double x);
+double softplus(double x);
+double dsoftplus(double x);
+
+struct Cost NN_SQUARE = {
+    .func = square_loss,
+    .dfunc_out = square_dloss_out
+};
+
+struct Activation NN_SOFTPLUS = {
+    .func = softplus,
+    .dfunc = dsoftplus,
+};
+
+struct Activation NN_LEAKY_RELU = {
+    .func = leaky_relu,
+    .dfunc = dleaky_relu
+};
 
 struct Activation NN_RELU = {
     .func = relu,
@@ -45,7 +69,7 @@ void nn_network_train(
         biases[l] = calloc(network[l].neurons, sizeof(double));
     }
 
-    for (size_t epoch = 0; epoch < epochs; epochs++) {
+    for (size_t epoch = 0; epoch < epochs; epoch++) {
         nn_forward(outs, zouts, input, input_shape, network, network_size);
         nn_backward(
                 weights, biases,
@@ -55,7 +79,7 @@ void nn_network_train(
                 network, network_size,
                 cost.dfunc_out, alpha);
         double *net_out = outs[network_size - 1];
-        fprintf(stderr, "epoch: %zu \tavg loss: %6.2lf\n",
+        fprintf(stdout, "epoch: %zu \t loss: %6.2lf\n",
                 epoch, get_avg_loss(labels, net_out, labels_shape, cost.func));
     }
 
@@ -71,6 +95,7 @@ void nn_network_train(
     free(weights);
     free(biases);
 
+    return;
 nn_network_train_error:
     perror("nn_network_train() Error");
     exit(1);
@@ -89,54 +114,55 @@ void nn_backward(
     for (size_t l = 0; l < network_size; l++) {
         max_neurons = (max_neurons > network[l].neurons) ? max_neurons : network[l].neurons;
     }
-    double *dcost_out = calloc(labels_shape[0] * labels_shape[1], sizeof(double));
+    double *dcost_outs = calloc(labels_shape[0] * labels_shape[1], sizeof(double));
     double *delta = calloc(max_neurons, sizeof(double));
     double *delta_next = calloc(max_neurons, sizeof(double));
 
-    if (!dcost_out || !delta || !delta_next) goto nn_backward_error;
+    if (!dcost_outs || !delta || !delta_next) goto nn_backward_error;
 
     for (size_t i = 0; i < labels_shape[0]; i++) {
-        for (size_t j = 0; j < labels_shape[0]; j++) {
+        for (size_t j = 0; j < labels_shape[1]; j++) {
             size_t index = i * labels_shape[1] + j;
-            dcost_out[index] = dcost_out_func(Labels[index], Outs[network_size - 1][index]);
+            dcost_outs[index] = dcost_out_func(Labels[index], Outs[network_size - 1][index]);
         }
     }
 
     for (size_t sample = 0; sample < input_shape[0]; sample++) {
-        for (size_t l = network_size - 1; l >= 0; l--) {
-            size_t weigths_shape[2] = {network[l].input_nodes, network[l].neurons};
+        for (size_t l = network_size - 1; l >= 0 && l < network_size; l--) {
+            size_t weights_shape[2] = {network[l].input_nodes, network[l].neurons};
             if (l == network_size - 1) {
                 double *zout = Zout[l] + sample * network[l].neurons;
                 double *out_prev = Outs[l - 1] + sample * network[l-1].neurons;
+                double *dcost_out = dcost_outs + sample * network[l].neurons;
                 nn_layer_out_delta(delta, dcost_out, zout, network[l].neurons, network[l].activation.dfunc);
-                nn_layer_backward(weights[l], bias[l], weigths_shape, delta, out_prev, network[l], alpha);
+                nn_layer_backward(weights[l], bias[l], weights_shape, delta, out_prev, network[l], alpha);
             } else if (l == 0) {
-                size_t weigths_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
+                size_t weights_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
                 double *zout = Zout[l] + sample * network[l].neurons;
                 double *input = Input + sample * input_shape[1];
-                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation.dfunc);
-                nn_layer_backward(weights[l], bias[l], weigths_shape, delta, input, network[l], alpha);
-                break;
+                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weights_next_shape, network[l].activation.dfunc);
+                nn_layer_backward(weights[l], bias[l], weights_shape, delta, input, network[l], alpha);
             } else {
-                size_t weigths_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
+                size_t weights_next_shape[2] = {network[l+1].input_nodes, network[l+1].neurons};
                 double *zout = Zout[l] + sample * network[l].neurons;
                 double *out_prev = Outs[l - 1] + sample * network[l-1].neurons;
-                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weigths_next_shape, network[l].activation.dfunc);
-                nn_layer_backward(weights[l], bias[l], weigths_shape, delta, out_prev, network[l], alpha);
+                nn_layer_hidden_delta(delta, delta_next, zout, weights[l+1], weights_next_shape, network[l].activation.dfunc);
+                nn_layer_backward(weights[l], bias[l], weights_shape, delta, out_prev, network[l], alpha);
             }
-            memmove(delta_next, delta, weigths_shape[1] * sizeof(double));
+            memmove(delta_next, delta, weights_shape[1] * sizeof(double));
         }
-        for (size_t l = network_size - 1; l >= 0; l--) {
-            size_t weigths_shape[2] = {network[l].input_nodes, network[l].neurons};
-            memmove(network[l].weights, weights[l], weigths_shape[0] * weigths_shape[1] * sizeof(double));
-            memmove(network[l].bias, bias[l], weigths_shape[1] * sizeof(double));
+
+        for (size_t l = 0; l < network_size; l++) {
+            size_t weights_shape[2] = {network[l].input_nodes, network[l].neurons};
+            memmove(network[l].weights, weights[l], weights_shape[0] * weights_shape[1] * sizeof(double));
+            memmove(network[l].bias, bias[l], weights_shape[1] * sizeof(double));
         }
     }
 
-    free(dcost_out);
+    free(dcost_outs);
     free(delta);
     free(delta_next);
-
+    return;
 nn_backward_error:
     perror("nn_backward() Error");
     exit(1);
@@ -161,14 +187,14 @@ void nn_layer_backward(
 
 void nn_layer_hidden_delta(
         double *delta, double *delta_next, double *zout,
-        double *weigths_next, size_t weigths_shape[2],
+        double *weights_next, size_t weights_shape[2],
         double (*activation_derivative)(double))
 {
-    for (size_t j = 0; j < weigths_shape[0]; j++) {
+    for (size_t j = 0; j < weights_shape[0]; j++) {
         double sum = 0;
-        for (size_t k = 0; k < weigths_shape[1]; k++) {
-            size_t index = j * weigths_shape[1] + k;
-            sum += delta_next[k] * weigths_next[index];
+        for (size_t k = 0; k < weights_shape[1]; k++) {
+            size_t index = j * weights_shape[1] + k;
+            sum += delta_next[k] * weights_next[index];
         }
         delta[j] = sum * activation_derivative(zout[j]);
     }
@@ -327,18 +353,52 @@ double relu(double x)
     return (x > 0) ? x : 0;
 }
 
-double drelu(double x) {
+double drelu(double x)
+{
     return (x > 0) ? 1 : 0;
 }
 
-double get_avg_loss(double labels[], double outs[], size_t shape[2], double (*loss)(double, double))
+double leaky_relu(double x)
+{
+    return (x > 0) ? x : 0.01 * x;
+}
+
+double dleaky_relu(double x)
+{
+    return (x > 0) ? 1 : 0.01;
+}
+
+double softplus(double x)
+{
+    return log1p(exp(x));
+}
+
+double dsoftplus(double x)
+{
+    return sigmoid(x);
+}
+
+double square_loss(double labels[], double net_out[], size_t shape)
 {
     double sum = 0;
-    for (size_t i = 0; i < shape[0]; i++) {
-        for (size_t j = 0; j < shape[1]; j++) {
-            size_t index = i * shape[1] + j;
-            sum += loss(labels[index], outs[index]);
-        }
+    for (size_t i = 0; i < shape; i++) {
+        sum += pow(labels[i] - net_out[i], 2);
     }
-    return sum / shape[1];
+    return 0.5 * sum;
+}
+
+double square_dloss_out(double label, double net_out)
+{
+    return net_out - label;
+}
+
+double get_avg_loss(
+        double labels[], double outs[], size_t shape[2],
+        double (*loss)(double *, double *, size_t shape))
+{
+    double sum = 0;
+    for (size_t i = 0; i < shape[0]; i += shape[1]) {
+        sum += loss(labels + i, outs + i, shape[1]);
+    }
+    return sum / shape[0];
 }

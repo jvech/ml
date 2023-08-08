@@ -11,7 +11,7 @@
 #include <openblas/cblas.h>
 
 struct Cost {
-    double (*func)(double labels, double net_out);
+    double (*func)(double labels[], double net_out[], size_t shape);
     double (*dfunc_out)(double labels, double net_out);
 };
 
