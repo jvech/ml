@@ -25,7 +25,7 @@ run: build
 	./${BIN}
 
 debug: build
-	gdb ${BIN} -x breaks.txt --tui
+	gdb ${BIN} -x commands.gdb --tui
 
 clean:
 	@rm $(OBJS) $(OBJDIR) -rv

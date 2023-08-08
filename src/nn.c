@@ -9,40 +9,10 @@ static double get_avg_loss(
 double square_loss(double labels[], double net_outs[], size_t shape);
 double square_dloss_out(double labels, double net_out);
 
-double leaky_relu(double x);
-double dleaky_relu(double x);
-double relu(double x);
-double drelu(double x);
-double sigmoid(double x);
-double dsigmoid(double x);
-double softplus(double x);
-double dsoftplus(double x);
-
 struct Cost NN_SQUARE = {
     .func = square_loss,
     .dfunc_out = square_dloss_out
 };
-
-struct Activation NN_SOFTPLUS = {
-    .func = softplus,
-    .dfunc = dsoftplus,
-};
-
-struct Activation NN_LEAKY_RELU = {
-    .func = leaky_relu,
-    .dfunc = dleaky_relu
-};
-
-struct Activation NN_RELU = {
-    .func = relu,
-    .dfunc = drelu
-};
-
-struct Activation NN_SIGMOID = {
-    .func = sigmoid,
-    .dfunc = dsigmoid
-};
-
 
 void nn_network_train(
         Layer network[], size_t network_size,
@@ -336,46 +306,6 @@ void fill_random_weights(double *weights, double *bias, size_t rows, size_t cols
 nn_fill_random_weights_error:
     perror("nn_fill_random_weights Error()");
     exit(1);
-}
-
-double sigmoid(double x)
-{
-    return 1 / (1 + exp(-x));
-}
-
-double dsigmoid(double x)
-{
-    return sigmoid(x) * (1 - sigmoid(x));
-}
-
-double relu(double x)
-{
-    return (x > 0) ? x : 0;
-}
-
-double drelu(double x)
-{
-    return (x > 0) ? 1 : 0;
-}
-
-double leaky_relu(double x)
-{
-    return (x > 0) ? x : 0.01 * x;
-}
-
-double dleaky_relu(double x)
-{
-    return (x > 0) ? 1 : 0.01;
-}
-
-double softplus(double x)
-{
-    return log1p(exp(x));
-}
-
-double dsoftplus(double x)
-{
-    return sigmoid(x);
 }
 
 double square_loss(double labels[], double net_out[], size_t shape)
