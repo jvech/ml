@@ -14,6 +14,11 @@ struct Activation NN_LEAKY_RELU = {
     .dfunc = dleaky_relu
 };
 
+struct Activation NN_SOFTPLUS = {
+    .func = softplus,
+    .dfunc = dsoftplus
+};
+
 struct Activation NN_RELU = {
     .func = relu,
     .dfunc = drelu

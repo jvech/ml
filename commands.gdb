@@ -1,4 +1,4 @@
-break nn.c:68
+break nn.c:35
     commands
-        p *net_out@labels_shape[1]*labels_shape[0]
+        printf "(%zu x %zu)", out_shape[0], out_shape[1];
     end

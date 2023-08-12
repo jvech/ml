@@ -2,3 +2,7 @@ data/
 tags
 ml
 objs/
+doc/*
+!doc/*.pdf
+!doc/*.tex
+*.gdb
