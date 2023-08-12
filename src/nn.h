@@ -29,6 +29,11 @@ typedef struct Layer {
 void nn_network_init_weights(Layer *network, size_t nmemb, size_t input_cols);
 void nn_network_free_weights(Layer *network, size_t nmemb);
 
+void nn_network_predict(
+        double *out, size_t out_shape[2],
+        double *input, size_t input_shape[2],
+        Layer network[], size_t network_size);
+
 void nn_network_train(
         Layer network[], size_t network_size,
         double *input, size_t input_shape[2],
