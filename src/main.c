@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <getopt.h>
 #include <json-c/json.h>
 
 #include "nn.h"
@@ -13,6 +14,36 @@ typedef struct Array {
 } Array;
 
 #define ARRAY_SIZE(x, type) sizeof(x) / sizeof(type)
+
+static void version()
+{
+    printf("ml 0.1\n");
+    printf("Written by vech\n");
+    exit(0);
+}
+
+static void usage(int exit_code)
+{
+    FILE *fp = (!exit_code) ? stdout : stderr;
+    fprintf(fp,
+            "Usage: ml train [Options] {[-i INPUT]}... {[-l LABEL]}... JSON_FILE\n"
+            "   or: ml predict [-o FILE] FILE\n"
+            "Train and predict json data\n"
+            "\n"
+            "Options:\n"
+            "  -a, --alpha=ALPHA        Learning rate (only works with train) [default: 1e-5]\n"
+            "  -e, --epochs=EPOCHS      Number of epochs to train the model (only works with train)\n"
+            "                           [default: 100]\n"
+            "  -i INPUT                 Input key from json file (only works with train)\n"
+            "  -l LABEL                 Label key from json file (only works with train)\n"
+            "  -o, --output FILE        Output file (only works with predict)\n"
+            "\n"
+            "Examples:\n"
+            "  $ ml train -i area -i latitude -i longitude -l price housing.json\n"
+            "  $ ml predict housing.json -o predictions.json\n"
+           );
+    exit(exit_code);
+}
 
 static void json_read(const char *filepath,
                       Array *input, Array *out,
@@ -85,32 +116,51 @@ json_read_error:
     exit(1);
 }
 
-int main(void) {
-    Layer network[] = {
-        {.neurons = 5, .activation = relu},
-        {.neurons = 1, .activation = sigmoid},
+int main(int argc, char *argv[]) {
+    char **input_keys, **label_keys;
+    char *out_filename, *in_filename;
+    double epochs = 100, alpha = 1e-5;
+
+    static struct option long_opts[] = {
+        {"help",        no_argument,        0, 'h'},
+        {"version",     no_argument,        0, 'v'},
+        {"epochs",      required_argument,  0, 'e'},
+        {"alpha",       required_argument,  0, 'a'},
+        {"output",      required_argument,  0, 'o'},
+        {0,             0,                  0,  0 },
     };
-    Array X, y;
-    char *in_keys[] = {"area", "longitude", "latitude"};
-    json_read("data/test.json", &X, &y, "price", in_keys, ARRAY_SIZE(in_keys, char *));
+    int c;
 
-    size_t network_size = ARRAY_SIZE(network, Layer);
-    nn_network_init_weights(network, network_size, 3);
-    double **outputs = calloc(network_size, sizeof(double *));
+    while (1) {
+        c = getopt_long(argc, argv, "hve:a:o:i:l:", long_opts, NULL);
+        printf("optind: %d\n", optind);
+        if (c == -1) {
+            break;
+        }
+        switch (c) {
+        case 'h':
+            usage(0);
+        case 'v':
+            version();
+        case 'e':
+            printf("epochs: %s\n", optarg);
+            break;
+        case 'a':
+            printf("alpha: %s\n", optarg);
+            break;
+        case 'o':
+            printf("output: '%s'\n", optarg);
+            break;
+        case 'i':
+            printf("input: '%s'\n", optarg);
+            break;
+        case 'l':
+            printf("label: '%s'\n", optarg);
+            break;
+        default:
+            usage(1);
+        }
+    }
 
-    size_t out_rows = X.shape[0];//
-    for (size_t l = 0; l < network_size; l++) {//
-        outputs[l] = calloc(network[l].neurons * out_rows, sizeof(double));//
-    } //
-
-    nn_forward(outputs, X.data, X.shape, network, network_size);
-
-    for (size_t l = 0; l < network_size; l++) free(outputs[l]);
-    free(outputs);
-
-    nn_network_free_weights(network, network_size);
-    free(X.data);
-    free(y.data);
-
-    
+    return 0;
 }

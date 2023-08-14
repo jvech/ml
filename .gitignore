@@ -6,3 +6,4 @@ doc/*
 !doc/*.pdf
 !doc/*.tex
 *.gdb
+*.gpi
