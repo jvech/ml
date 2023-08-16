@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <json-c/json.h>
 
+#include "util.h"
 #include "nn.h"
 
 const size_t MAX_FILE_SIZE = 1<<29; // 0.5 GiB
@@ -26,7 +27,7 @@ static void usage(int exit_code)
 {
     FILE *fp = (!exit_code) ? stdout : stderr;
     fprintf(fp,
-            "Usage: ml train [Options] {[-i INPUT]}... {[-l LABEL]}... JSON_FILE\n"
+            "Usage: ml train [Options] JSON_FILE\n"
             "   or: ml predict [-o FILE] FILE\n"
             "Train and predict json data\n"
             "\n"
@@ -34,12 +35,10 @@ static void usage(int exit_code)
             "  -a, --alpha=ALPHA        Learning rate (only works with train) [default: 1e-5]\n"
             "  -e, --epochs=EPOCHS      Number of epochs to train the model (only works with train)\n"
             "                           [default: 100]\n"
-            "  -i INPUT                 Input key from json file (only works with train)\n"
-            "  -l LABEL                 Label key from json file (only works with train)\n"
             "  -o, --output FILE        Output file (only works with predict)\n"
             "\n"
             "Examples:\n"
-            "  $ ml train -i area -i latitude -i longitude -l price housing.json\n"
+            "  $ ml train -e 150 -a 1e-4 housing.json\n"
             "  $ ml predict housing.json -o predictions.json\n"
            );
     exit(exit_code);
@@ -117,10 +116,14 @@ json_read_error:
 }
 
 int main(int argc, char *argv[]) {
-    char **input_keys, **label_keys;
-    char *out_filename, *in_filename;
-    double epochs = 100, alpha = 1e-5;
 
+    char **input_keys, **label_keys;
+    int in_key_size = 0, label_key_size = 0;
+    char *out_filename = NULL, *in_filename = NULL;
+    size_t epochs = 100;
+    double alpha = 1e-5;
+
+    if (argc <= 1) usage(1);
     static struct option long_opts[] = {
         {"help",        no_argument,        0, 'h'},
         {"version",     no_argument,        0, 'v'},
@@ -133,34 +136,41 @@ int main(int argc, char *argv[]) {
 
     while (1) {
         c = getopt_long(argc, argv, "hve:a:o:i:l:", long_opts, NULL);
-        printf("optind: %d\n", optind);
+
         if (c == -1) {
             break;
         }
         switch (c) {
+        case 'e':
+            epochs = (size_t)atol(optarg);
+            break;
+        case 'a':
+            alpha = (double)atof(optarg);
+            break;
+        case 'o':
+            out_filename = optarg;
+            break;
         case 'h':
             usage(0);
         case 'v':
             version();
-        case 'e':
-            printf("epochs: %s\n", optarg);
-            break;
-        case 'a':
-            printf("alpha: %s\n", optarg);
-            break;
-        case 'o':
-            printf("output: '%s'\n", optarg);
-            break;
-        case 'i':
-            printf("input: '%s'\n", optarg);
-            break;
-        case 'l':
-            printf("label: '%s'\n", optarg);
-            break;
         default:
             usage(1);
         }
     }
 
+    argv += optind;
+    argc -= optind;
+    if (argc != 2) usage(1);
+
+    in_filename = argv[1];
+
+    if (!strcmp(argv[0], "train")) {
+        printf("train command\n");
+        printf("in_filename: '%s'\n", in_filename);
+    } else if (!strcmp(argv[0], "predict")) {
+    } else {
+        usage(1);
+    }
     return 0;
 }
