@@ -25,7 +25,7 @@ run: build
 	./${BIN}
 
 debug: build
-	gdb ${BIN} -x commands.gdb --tui
+	gdb -x utils/commands.gdb --tui --args ${BIN} train -a 230 test.json -e 150
 
 clean:
 	@rm $(OBJS) $(OBJDIR) -rv
