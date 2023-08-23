@@ -92,9 +92,10 @@ int main(int argc, char *argv[]) {
     struct Configs ml_configs = {
         .epochs = 100,
         .alpha = 1e-5,
-        .config_filepath = "utils/config.yml",
+        .config_filepath = "utils/ml.cfg",
     };
-    util_load_config(&ml_configs);
+
+    util_load_config(&ml_configs, ml_configs.config_filepath);
     util_load_cli(&ml_configs, argc, argv);
     return 0;
 }

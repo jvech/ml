@@ -1,5 +1,5 @@
 CC 		= clang
-CFLAGS 	= -std=c11 -Wall -g
+CFLAGS 	= -std=gnu11 -Wall -g
 BIN 	= ml
 OBJDIR 	= objs
 SRC 	= $(wildcard src/*.c)
@@ -22,7 +22,7 @@ build: $(OBJS)
 	${CC} ${DLIBS} -o ${BIN} ${OBJS}
 
 run: build
-	./${BIN}
+	./${BIN} train -a 230 test.json -e 150
 
 debug: build
 	gdb -x utils/commands.gdb --tui --args ${BIN} train -a 230 test.json -e 150
