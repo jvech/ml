@@ -4,15 +4,21 @@
 #include <stddef.h>
 
 struct Configs {
+    /* net cfgs */
     size_t epochs;
     double alpha;
+    char *loss;
     char **input_keys, **label_keys;
     size_t n_input_keys, n_label_keys;
-    char *loss;
-    char *in_filepath;
-    char *out_filepath;
     char *weights_filepath;
     char *config_filepath;
+    /* cli cfgs */
+    char *in_filepath;
+    char *out_filepath;
+    /* layer cfgs */
+    size_t network_size;
+    size_t *neurons;
+    char **activations;
 };
 
 void die(const char *fmt, ...);

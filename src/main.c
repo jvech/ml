@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
+#include <errno.h>
 #include <getopt.h>
 #include <json-c/json.h>
 
@@ -88,14 +90,38 @@ json_read_error:
     exit(1);
 }
 
+void load_config(struct Configs *cfg, int n_args, ...)
+{
+    char *filepath;
+    va_list ap;
+    va_start(ap, n_args);
+    int i;
+    for (i = 0; i < n_args; i++) {
+        filepath = va_arg(ap, char *);
+        util_load_config(cfg, filepath);
+        if (errno == 0) {
+            va_end(ap);
+            return;
+        } else if (errno == ENOENT && i < n_args - 1) {
+            errno = 0;
+        } else break;
+    }
+    va_end(ap);
+    die("load_config() Error:");
+}
+
+
 int main(int argc, char *argv[]) {
     struct Configs ml_configs = {
         .epochs = 100,
         .alpha = 1e-5,
-        .config_filepath = "utils/ml.cfg",
+        .config_filepath = "utils/settings.cfg",
+        .network_size = 0,
     };
 
-    util_load_config(&ml_configs, ml_configs.config_filepath);
+    // Try different config paths
+    load_config(&ml_configs, 3, "~/.config/ml/ml.cfg", "~/.ml/ml.cfg", ml_configs.config_filepath);
     util_load_cli(&ml_configs, argc, argv);
+    util_free_config(&ml_configs);
     return 0;
 }

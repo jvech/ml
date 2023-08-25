@@ -8,6 +8,9 @@
 #define BUFFER_SIZE 1024
 
 static char ** config_read_values(size_t *n_out_keys, char *first_value, char **strtok_ptr);
+static void load_net_cfgs(struct Configs *cfg, char *key, char *value, char *strtok_ptr, char *filepath);
+static void load_lyr_cfgs(struct Configs *cfg, char *key, char *value, char *filepath);
+static void add_lyr(struct Configs *cfg);
 
 void die(const char *fmt, ...)
 {
@@ -25,6 +28,15 @@ void die(const char *fmt, ...)
 	}
 
 	exit(1);
+}
+
+void * erealloc(void *ptr, size_t size)
+{
+	void *p;
+
+	if (!(p = realloc(ptr, size)))
+		die("realloc:");
+	return p;
 }
 
 void * ecalloc(size_t nmemb, size_t size)
@@ -119,6 +131,10 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
 
 void util_free_config(struct Configs *ml)
 {
+    if (ml->loss != NULL) free(ml->loss);
+    if (ml->neurons != NULL) free(ml->neurons);
+    if (ml->weights_filepath != NULL) free(ml->weights_filepath);
+
     if (ml->input_keys != NULL) {
         for (size_t i = 0; i < ml->n_input_keys; i++)
             free(ml->input_keys[i]);
@@ -130,21 +146,45 @@ void util_free_config(struct Configs *ml)
             free(ml->label_keys[i]);
         free(ml->label_keys);
     }
+
+    if (ml->activations != NULL) {
+        for (size_t i = 0; i < ml->network_size; i++)
+            free(ml->activations[i]);
+        free(ml->activations);
+    }
 }
 
 void util_load_config(struct Configs *ml, char *filepath)
 {
-    int line_number = 1;
+    enum Section {NET, LAYER, OUT_LAYER};
+    enum Section section;
+    int line_number = 0;
     char line_buffer[BUFFER_SIZE], line_buffer_original[BUFFER_SIZE];
     char token_buffer[BUFFER_SIZE];
     FILE *fp = fopen(filepath, "r");
-    if (fp == NULL) die("util_load_config() Error:");
+    if (fp == NULL) return;
 
     while (fgets(line_buffer, BUFFER_SIZE, fp)) {
         int ret = sscanf(line_buffer, "[%[-_a-zA-Z0-9]]", token_buffer);
-        if (ret >= 1) continue;
+        line_number++;
+        if (ret >= 1){
+            if  (!strcmp("net", token_buffer)) {
+                section = NET;
+            } else if (!strcmp("layer", token_buffer)) {
+                section = LAYER;
+                ml->network_size++;
+                add_lyr(ml);
+            } else if (!strcmp("outlayer", token_buffer)) {
+                section = OUT_LAYER;
+                ml->network_size++;
+                add_lyr(ml);
+                ml->neurons[ml->network_size-1] = ml->n_label_keys;
+            }
+            continue;
+        }
 
-        strcpy(line_buffer_original, line_buffer);
+        sscanf(line_buffer, "%1023[^\n]", line_buffer_original);
+
 
         char *line_ptr = line_buffer;
         while (*line_ptr == ' ') line_ptr++; // delete whitespaces
@@ -167,23 +207,64 @@ void util_load_config(struct Configs *ml, char *filepath)
         value = strtok_r(NULL, "= ,\n", &ptr_buffer);
         if (value == NULL) goto util_load_config_error;
 
-        if (!strcmp(key, "weights_path"))   ml->weights_filepath = e_strdup(value);
-        else if (!strcmp(key, "loss"))      ml->loss = e_strdup(value);
-        else if (!strcmp(key, "epochs"))    ml->epochs = (size_t)atol(value);
-        else if (!strcmp(key, "alpha"))     ml->alpha = (double)atof(value);
-        else if (!strcmp(key, "inputs"))    ml->input_keys = config_read_values(&(ml->n_input_keys), value, &ptr_buffer);
-        else if (!strcmp(key, "labels"))    ml->label_keys = config_read_values(&(ml->n_label_keys), value, &ptr_buffer);
-        else die("util_load_config() Error: Unknown parameter '%s' on line '%d'", key, line_number);
-        ptr_buffer = NULL;
-        value = NULL;
-
+        switch (section) {
+        case NET:
+            load_net_cfgs(ml, key, value, ptr_buffer, filepath);
+            break;
+        case LAYER:
+            load_lyr_cfgs(ml, key, value, filepath);
+            break;
+        case OUT_LAYER:
+            load_lyr_cfgs(ml, key, value, filepath);
+            if (!strcmp("neurons", key) && atof(value) != ml->n_label_keys) {
+                die("util_load_config() Error: out layer neurons '%zu' differ from the number of labels '%zu'",
+                    ml->n_label_keys, atof(value));
+            }
+            break;
+        default:
+            goto util_load_config_error;
+            break;
+        }
     }
     fclose(fp);
     return;
 
 util_load_config_error:
-    die("util_load_config() Error: line %d has invalid format '%s'",
-        line_number, line_buffer_original);
+    die("util_load_config() Error: Invalid format on file %s.\n  %d: %s",
+        filepath, line_number, line_buffer_original);
+}
+
+void add_lyr(struct Configs *cfg)
+{
+    if (cfg->network_size == 1) {
+        cfg->activations = ecalloc(1, sizeof(char *));
+        cfg->neurons = ecalloc(1, sizeof(size_t));
+        return;
+    }
+    cfg->activations = erealloc(cfg->activations, cfg->network_size * sizeof(char *));
+    cfg->neurons = erealloc(cfg->neurons, cfg->network_size * sizeof(size_t));
+}
+void load_lyr_cfgs(struct Configs *cfg, char *key, char *value, char *filepath)
+{
+    size_t index = cfg->network_size - 1;
+    if (index > cfg->network_size)
+        die("load_lyr_cfgs() Error: index '%d' is greater than network_size '%d'", index, cfg->network_size);
+
+    if (!strcmp(key, "activation"))     cfg->activations[index] = strdup(value);
+    else if (!strcmp(key, "neurons"))   cfg->neurons[index] = atof(value);
+    else die("util_load_config() Error: Unknown parameter '%s' on file %s.", key, filepath);
+
+}
+
+void load_net_cfgs(struct Configs *cfg, char *key, char *value, char *strtok_ptr, char *filepath)
+{
+    if (!strcmp(key, "weights_path"))   cfg->weights_filepath = e_strdup(value);
+    else if (!strcmp(key, "loss"))      cfg->loss = e_strdup(value);
+    else if (!strcmp(key, "epochs"))    cfg->epochs = (size_t)atol(value);
+    else if (!strcmp(key, "alpha"))     cfg->alpha = (double)atof(value);
+    else if (!strcmp(key, "inputs"))    cfg->input_keys = config_read_values(&(cfg->n_input_keys), value, &strtok_ptr);
+    else if (!strcmp(key, "labels"))    cfg->label_keys = config_read_values(&(cfg->n_label_keys), value, &strtok_ptr);
+    else die("util_load_config() Error: Unknown parameter '%s' on file %s.", key, filepath);
 }
 
 char ** config_read_values(size_t *n_out_keys, char *first_value, char **strtok_ptr)
@@ -194,7 +275,7 @@ char ** config_read_values(size_t *n_out_keys, char *first_value, char **strtok_
 
     char *value;
     while ((value = strtok_r(NULL, ", \n", strtok_ptr)) != NULL) {
-        out_keys = realloc(out_keys, sizeof(char *) * (*n_out_keys + 1));
+        out_keys = erealloc(out_keys, sizeof(char *) * (*n_out_keys + 1));
         out_keys[*n_out_keys] = e_strdup(value);
         (*n_out_keys)++;
     }
