@@ -72,10 +72,10 @@ void usage(int exit_code)
             "Train and predict json data\n"
             "\n"
             "Options:\n"
-            "  -a, --alpha=ALPHA        Learning rate (only works with train) [default: 1e-5]\n"
-            "  -e, --epochs=EPOCHS      Number of epochs to train the model (only works with train)\n"
-            "                           [default: 100]\n"
-            "  -o, --output FILE        Output file (only works with predict)\n"
+            "  -h, --help               Show this message\n"
+            "  -a, --alpha=ALPHA        Learning rate (only works with train)\n"
+            "  -e, --epochs=EPOCHS      Epochs to train the model (only works with train)\n"
+            "  -o, --output=FILE        Output file (only works with predict)\n"
             "\n"
             "Examples:\n"
             "  $ ml train -e 150 -a 1e-4 housing.json\n"
@@ -179,6 +179,9 @@ void util_load_config(struct Configs *ml, char *filepath)
                 ml->network_size++;
                 add_lyr(ml);
                 ml->neurons[ml->network_size-1] = ml->n_label_keys;
+            } else {
+                die("util_load_config() Error: Unknown section '%s' on %s",
+                    line_buffer, filepath);
             }
             continue;
         }
@@ -199,10 +202,18 @@ void util_load_config(struct Configs *ml, char *filepath)
             || (*line_ptr < 0x61 && *line_ptr > 0x7A))
             goto util_load_config_error;
 
-        /* Load Key Value */
-        char *key, *value;
         char *ptr_buffer;
         strtok_r(line_buffer, ";#", &ptr_buffer); // omit comments
+
+        /* Check For invalid = characters*/
+        int eq_count;
+        for (eq_count = 0, line_ptr = line_buffer;
+             *line_ptr != '\0';
+             line_ptr++, eq_count += (*line_ptr == '='));
+        if (eq_count > 1) goto util_load_config_error;
+
+        /* Load Key Value */
+        char *key, *value;
         key = strtok_r(line_buffer, " =", &ptr_buffer);
         value = strtok_r(NULL, "= ,\n", &ptr_buffer);
         if (value == NULL) goto util_load_config_error;
@@ -216,9 +227,9 @@ void util_load_config(struct Configs *ml, char *filepath)
             break;
         case OUT_LAYER:
             load_lyr_cfgs(ml, key, value, filepath);
-            if (!strcmp("neurons", key) && atof(value) != ml->n_label_keys) {
-                die("util_load_config() Error: out layer neurons '%zu' differ from the number of labels '%zu'",
-                    ml->n_label_keys, atof(value));
+            if (!strcmp("neurons", key) && (size_t)atol(value) != ml->n_label_keys) {
+                die("util_load_config() Error: out layer neurons (%zu) differ from the number of labels (%zu)",
+                    (size_t)atol(value), ml->n_label_keys);
             }
             break;
         default:
@@ -230,7 +241,7 @@ void util_load_config(struct Configs *ml, char *filepath)
     return;
 
 util_load_config_error:
-    die("util_load_config() Error: Invalid format on file %s.\n  %d: %s",
+    die("util_load_config() Error: Invalid format on %s.\n  %d: %s",
         filepath, line_number, line_buffer_original);
 }
 
