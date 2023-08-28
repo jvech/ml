@@ -22,10 +22,10 @@ build: $(OBJS)
 	${CC} ${DLIBS} -o ${BIN} ${OBJS}
 
 run: build
-	./${BIN} train -a 230 test.json -e 150
+	./${BIN} train -a 1e-6 data/sample_data.json -e 150
 
 debug: build
-	gdb -x utils/commands.gdb --tui --args ${BIN} train -a 230 test.json -e 150
+	gdb -x utils/commands.gdb --tui --args ${BIN} train -a 230 data/sample_data.json -e 150
 
 clean:
 	@rm $(OBJS) $(OBJDIR) -rv

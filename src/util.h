@@ -21,6 +21,7 @@ struct Configs {
     char **activations;
 };
 
+void usage(int exit_code);
 void die(const char *fmt, ...);
 void *ecalloc(size_t nmemb, size_t size);
 void *erealloc(void *ptr, size_t size);
