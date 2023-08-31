@@ -22,10 +22,13 @@ build: $(OBJS)
 	${CC} ${DLIBS} -o ${BIN} ${OBJS}
 
 run: build
-	./${BIN} train -a 1e-6 data/sample_data.json -e 150
+	@./${BIN} train data/sample_data.json | tee data/train_history.txt
+	@./${BIN} predict data/sample_data.json | jq -r '.[] | [values[] as $$val | $$val] | @tsv' > ./data/net_data.tsv
+	@gnuplot -p utils/plot.gpi
 
 debug: build
 	gdb -x utils/commands.gdb --tui --args ${BIN} train -a 230 data/sample_data.json -e 150
+	gdb -x utils/commands.gdb --tui --args ${BIN} predict data/sample_data.json
 
 clean:
 	@rm $(OBJS) $(OBJDIR) -rv

@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "nn.h"
 
 double leaky_relu(double x);
