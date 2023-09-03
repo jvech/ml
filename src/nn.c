@@ -306,6 +306,7 @@ void nn_network_read_weights(char *filepath, Layer *network, size_t network_size
         if (ret != shape[1]) goto nn_network_read_weights_error;
     }
 
+    fclose(fp);
     return;
 
 nn_network_read_weights_error:
@@ -331,7 +332,7 @@ void nn_network_write_weights(char *filepath, Layer *network, size_t network_siz
         ret = fwrite(network[i].weights, sizeof(double), size, fp);
         if (ret != size) goto nn_network_write_weights_error;
 
-        ret = fwrite(network[i].weights, sizeof(double), network[i].neurons, fp);
+        ret = fwrite(network[i].bias, sizeof(double), network[i].neurons, fp);
         if (ret != network[i].neurons) goto nn_network_write_weights_error;
     }
     fclose(fp);
