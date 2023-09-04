@@ -5,6 +5,7 @@ objs/
 doc/*
 !doc/*.pdf
 !doc/*.tex
+!doc/*.1
 *.gdb
 *.gpi
 *.bin
