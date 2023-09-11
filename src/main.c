@@ -28,7 +28,7 @@
 #include "util.h"
 #include "nn.h"
 
-const size_t MAX_FILE_SIZE = 1<<29; // 0.5 GiB
+#define MAX_FILE_SIZE 536870912 //1<<29; 0.5 GiB
 
 typedef struct Array {
     double *data;
@@ -59,32 +59,17 @@ void json_read(
         bool read_output)
 {
     FILE *fp = NULL;
-    char *fp_buffer = NULL;
-    size_t ret;
-    int64_t fp_size;
+    static char fp_buffer[MAX_FILE_SIZE];
 
-    fp = fopen(filepath, "r");
+    fp = (!strcmp(filepath, "-")) ? fopen("/dev/stdin", "r") : fopen(filepath, "r");
+
     if (fp == NULL) goto json_read_error;
 
-    ret = (size_t)fseek(fp, 0L, SEEK_END);
-    if ((int)ret == -1) goto json_read_error;
-
-    fp_size = ftell(fp);
-    if (fp_size == -1) goto json_read_error;
-    if (fp_size >= MAX_FILE_SIZE) {
-        fprintf(stderr, "ftell Error(): '%s' size greater than '%zu'\n", filepath, MAX_FILE_SIZE);
-    }
-    rewind(fp);
-
-    fp_buffer = calloc(sizeof(char), fp_size);
-    if (fp_buffer == NULL) goto json_read_error;
-
-    ret = fread(fp_buffer, sizeof(char), (size_t)fp_size, fp);
-    if (ret != (size_t)fp_size) {
-        fprintf(stderr, "json_read() Error: fread bytes '%zd' does not match with buffer size '%zd'", ret, (size_t)fp_size);
-        exit(1);
-    }
-
+    size_t i = 0;
+    do {
+        if (i >= MAX_FILE_SIZE) die("json_read() Error: file size is bigger than '%zu'", i, MAX_FILE_SIZE);
+        fp_buffer[i] = fgetc(fp);
+    } while (fp_buffer[i++] != EOF);
 
     json_object *json_obj;
     json_obj = json_tokener_parse(fp_buffer);
