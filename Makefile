@@ -1,3 +1,5 @@
+include config.mk
+
 CC 		= clang
 CFLAGS 	= -std=gnu11 -Wall -g
 BIN 	= ml
@@ -20,6 +22,18 @@ $(OBJDIR)/%.o: src/%.c $(HEADERS)
 
 build: $(OBJS)
 	${CC} ${DLIBS} -o ${BIN} ${OBJS}
+
+install: all
+	@# binary
+	install -d $(BINPREFIX)
+	install -m 755 ${BIN} $(BINPREFIX)/${BIN}
+	@#man page
+	install -d $(MANPREFIX)/man1
+	install -m 644 doc/ml.1 $(MANPREFIX)/man1/ml.1
+
+uninstall:
+	rm -v $(BINPREFIX)/${BIN}
+	rm -v $(MANPREFIX)/man1/ml.1
 
 run: build
 	@./${BIN} train data/sample_data.json | tee data/train_history.txt

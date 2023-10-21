@@ -77,6 +77,12 @@ char *e_strdup(const char *s)
 void version()
 {
     printf("ml 0.1\n");
+    printf( "Copyright (C) 2023  jvech\n\n"
+            "This program is free software: you can redistribute it and/or modify\n"
+            "it under the terms of the GNU General Public License as published by\n"
+            "the Free Software Foundation, either version 3 of the License, or\n"
+            "(at your option) any later version.\n\n"
+            );
     printf("Written by vech\n");
     exit(0);
 }
