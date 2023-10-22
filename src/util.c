@@ -83,7 +83,7 @@ void version()
             "the Free Software Foundation, either version 3 of the License, or\n"
             "(at your option) any later version.\n\n"
             );
-    printf("Written by vech\n");
+    printf("Written by jvech\n");
     exit(0);
 }
 
@@ -93,17 +93,14 @@ void usage(int exit_code)
     fprintf(fp,
             "Usage: ml train [Options] JSON_FILE\n"
             "   or: ml predict [-o FILE] FILE\n"
-            "Train and predict json data\n"
             "\n"
             "Options:\n"
             "  -h, --help               Show this message\n"
             "  -a, --alpha=ALPHA        Learning rate (only works with train)\n"
             "  -e, --epochs=EPOCHS      Epochs to train the model (only works with train)\n"
             "  -o, --output=FILE        Output file (only works with predict)\n"
+            "  -c, --config=FILE        Configuration filepath [default=~/.config/ml/ml.cfg]\n"
             "\n"
-            "Examples:\n"
-            "  $ ml train -e 150 -a 1e-4 housing.json\n"
-            "  $ ml predict housing.json -o predictions.json\n"
            );
     exit(exit_code);
 }
@@ -117,12 +114,13 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
         {"epochs",      required_argument,  0, 'e'},
         {"alpha",       required_argument,  0, 'a'},
         {"output",      required_argument,  0, 'o'},
+        {"config",      required_argument,  0, 'c'},
         {0,             0,                  0,  0 },
     };
     int c;
 
     while (1) {
-        c = getopt_long(argc, argv, "hve:a:o:i:l:", long_opts, NULL);
+        c = getopt_long(argc, argv, "hvc:e:a:o:i:l:", long_opts, NULL);
 
         if (c == -1) {
             break;
@@ -136,6 +134,9 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
             break;
         case 'o':
             ml->out_filepath = optarg;
+            break;
+        case 'c':
+            ml->config_filepath = optarg;
             break;
         case 'h':
             usage(0);

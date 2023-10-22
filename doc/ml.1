@@ -9,7 +9,8 @@ ml \- manual page for ml 0.1
 .B ml
 \fI\,predict \/\fR[\fI\,-o FILE\/\fR] \fI\,FILE\/\fR
 .SH DESCRIPTION
-Train and predict json data
+ml is a simple neural network maker made to train and predict JSON data,
+it is suitable to work on classification problems.
 .SH OPTIONS
 .TP
 \fB\-h\fR, \fB\-\-help\fR
@@ -23,13 +24,47 @@ Epochs to train the model (only works with train)
 .TP
 \fB\-o\fR, \fB\-\-output\fR=\fI\,FILE\/\fR
 Output file (only works with predict)
+.TP
+\fB\-c\fR, \fB\-\-config\fR=\fI\,FILE\/\fR
+Configuration filepath [default=~/.config/ml/ml.cfg]
+.SH FILES
+~/.config/ml/ml.cfg
+    File path for network configuration, here you can setup the network
+    architecture and its training parameters
 .SH EXAMPLES
-.IP
-\f(CW$ ml train -e 150 -a 1e-4 housing.json\fR
-.br
-\f(CW$ ml predict housing.json -o predictions.json\fR
+
+Train a network to solve XOR problem, below is the training data:
+
+    [
+      {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      {
+        "x": 1,
+        "y": 0,
+        "z": 1
+      },
+      {
+        "x": 0,
+        "y": 1,
+        "z": 1
+      },
+      {
+        "x": 1,
+        "y": 1,
+        "z": 0
+      }
+    ]
+
+Use the default configuration file and train the model with:
+    $ ml train -e 150 xor.json
+
+And get the network output using:
+    $ ml predict xor.json 
 .SH AUTHOR
-Written by vech
+Written by jvech
 .SH COPYRIGHT
 Copyright \(co 2023  jvech
 .PP

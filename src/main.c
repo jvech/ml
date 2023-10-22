@@ -194,6 +194,7 @@ struct Cost load_loss(struct Configs cfg)
 }
 
 int main(int argc, char *argv[]) {
+    char default_config_path[512];
     struct Configs ml_configs = {
         .epochs = 100,
         .alpha = 1e-5,
@@ -202,11 +203,18 @@ int main(int argc, char *argv[]) {
         .out_filepath = NULL,
     };
 
-    // Try different config paths
-    load_config(&ml_configs, 3, "~/.config/ml/ml.cfg", "~/.ml/ml.cfg", ml_configs.config_filepath);
+    // First past to check if --config option was put
+    util_load_cli(&ml_configs, argc, argv);
+    optind = 1;
+    // Load configs with different possible paths
+    sprintf(default_config_path, "%s/%s", getenv("HOME"), ".config/ml/ml.cfg");
+    load_config(&ml_configs, 2, ml_configs.config_filepath, default_config_path);
+
+    // re-read cli options again, to overwrite file configuration options
     util_load_cli(&ml_configs, argc, argv);
     argc -= optind;
     argv += optind;
+
     Layer *network = load_network(ml_configs);
 
     Array X, y;

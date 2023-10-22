@@ -35,6 +35,9 @@ uninstall:
 	rm -v $(BINPREFIX)/${BIN}
 	rm -v $(MANPREFIX)/man1/ml.1
 
+man: build
+	help2man -N ./ml -I doc/man.txt > doc/ml.1
+
 run: build
 	@./${BIN} train data/sample_data.json | tee data/train_history.txt
 	@./${BIN} predict data/sample_data.json | jq -r '.[] | [values[] as $$val | $$val] | @tsv' > data/net_data.tsv
@@ -42,8 +45,8 @@ run: build
 	@gnuplot utils/plot.gpi
 
 debug: build
-	gdb -x utils/commands.gdb --tui --args ${BIN} train data/sample_data.json
-	gdb -x utils/commands.gdb --tui --args ${BIN} predict data/sample_data.json
+	gdb -x utils/commands.gdb --tui --args ${BIN} train data/xor.json -e 100
+	@#gdb -x utils/commands.gdb --tui --args ${BIN} predict data/sample_data.json
 
 clean:
 	@rm $(OBJS) $(OBJDIR) -rv
