@@ -31,6 +31,10 @@ install: all
 	install -d $(MANPREFIX)/man1
 	install -m 644 doc/ml.1 $(MANPREFIX)/man1/ml.1
 
+install_config:
+	mkdir -p ~/.config/ml
+	sed "s!utils/weights.bin!${CFGPREFIX}/ml.weights!" utils/settings.cfg > ${CFGPREFIX}/ml.cfg
+
 uninstall:
 	rm -v $(BINPREFIX)/${BIN}
 	rm -v $(MANPREFIX)/man1/ml.1
