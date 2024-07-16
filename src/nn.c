@@ -88,8 +88,11 @@ void nn_network_train(
     for (size_t l = 0; l < network_size; l++) {
         outs[l] = calloc(samples * network[l].neurons, sizeof(double));
         zouts[l] = calloc(samples * network[l].neurons, sizeof(double));
-        weights[l] = calloc(network[l].input_nodes * network[l].neurons, sizeof(double));
-        biases[l] = calloc(network[l].neurons, sizeof(double));
+        weights[l] = malloc(network[l].input_nodes * network[l].neurons * sizeof(double));
+        biases[l] = malloc(network[l].neurons * sizeof(double));
+
+        memcpy(weights[l], network[l].weights, sizeof(double) * network[l].input_nodes * network[l].neurons);
+        memcpy(biases[l], network[l].bias, sizeof(double) * network[l].neurons);
     }
 
     for (size_t epoch = 0; epoch < epochs; epoch++) {
@@ -175,11 +178,12 @@ void nn_backward(
             memmove(delta_next, delta, weights_shape[1] * sizeof(double));
         }
 
-        for (size_t l = 0; l < network_size; l++) {
-            size_t weights_shape[2] = {network[l].input_nodes, network[l].neurons};
-            memmove(network[l].weights, weights[l], weights_shape[0] * weights_shape[1] * sizeof(double));
-            memmove(network[l].bias, bias[l], weights_shape[1] * sizeof(double));
-        }
+    }
+
+    for (size_t l = 0; l < network_size; l++) {
+        size_t weights_shape[2] = {network[l].input_nodes, network[l].neurons};
+        memcpy(network[l].weights, weights[l], weights_shape[0] * weights_shape[1] * sizeof(double));
+        memcpy(network[l].bias, bias[l], weights_shape[1] * sizeof(double));
     }
 
     free(dcost_outs);
@@ -192,20 +196,16 @@ nn_backward_error:
 }
 
 void nn_layer_backward(
-        double *weights, double *bias, size_t weigths_shape[2],
+        double *weights, double *bias, size_t weights_shape[2],
         double *delta, double *out_prev,
         Layer layer, double alpha)
 {
-    for (size_t i = 0; i < weigths_shape[0]; i++) {
-        for (size_t j = 0; j < weigths_shape[1]; j++) {
-            size_t index = weigths_shape[1] * i + j;
-            double dcost_w = delta[j] * out_prev[i];
-            weights[index] = layer.weights[index] - alpha * dcost_w;
-        }
-    }
+    // W_next = W - alpha * out_prev @ delta.T
+    cblas_dger(CblasRowMajor, weights_shape[0], weights_shape[1], -alpha,
+               out_prev, 1, delta, 1, weights, weights_shape[1]);
 
-    for (size_t j = 0; j < weigths_shape[1]; j++)
-        bias[j] = layer.bias[j] - alpha * delta[j];
+    for (size_t j = 0; j < weights_shape[1]; j++)
+        bias[j] = bias[j] - alpha * delta[j];
 }
 
 void nn_layer_hidden_delta(
