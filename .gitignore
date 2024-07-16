@@ -7,5 +7,7 @@ doc/*
 !doc/*.tex
 !doc/*.1
 *.gdb
-*.gpi
+utils/*.gpi
 *.bin
+utils/*.py
+tests/*.png
