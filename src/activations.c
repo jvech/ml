@@ -28,6 +28,8 @@ double sigmoid(double x);
 double dsigmoid(double x);
 double softplus(double x);
 double dsoftplus(double x);
+double linear(double x);
+double dlinear(double x);
 
 struct Activation NN_LEAKY_RELU = {
     .func = leaky_relu,
@@ -48,6 +50,14 @@ struct Activation NN_SIGMOID = {
     .func = sigmoid,
     .dfunc = dsigmoid
 };
+
+struct Activation NN_LINEAR = {
+    .func = linear,
+    .dfunc = dlinear,
+};
+
+double linear(double x) {return x;}
+double dlinear(double x) {return 1.0;}
 
 double sigmoid(double x) { return 1 / (1 + exp(-x)); }
 double dsigmoid(double x) { return sigmoid(x) * (1 - sigmoid(x)); }

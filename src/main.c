@@ -170,6 +170,7 @@ Layer * load_network(struct Configs cfg)
     extern struct Activation NN_SOFTPLUS;
     extern struct Activation NN_SIGMOID;
     extern struct Activation NN_LEAKY_RELU;
+    extern struct Activation NN_LINEAR;
 
     Layer *network = ecalloc(cfg.network_size, sizeof(Layer));
 
@@ -178,6 +179,7 @@ Layer * load_network(struct Configs cfg)
         else if (!strcmp("sigmoid", cfg.activations[i]))        network[i].activation = NN_SIGMOID;
         else if (!strcmp("softplus", cfg.activations[i]))       network[i].activation = NN_SOFTPLUS;
         else if (!strcmp("leaky_relu", cfg.activations[i]))     network[i].activation = NN_LEAKY_RELU;
+        else if (!strcmp("linear", cfg.activations[i]))         network[i].activation = NN_LINEAR;
         else die("load_network() Error: Unknown '%s' activation", cfg.activations[i]);
 
         network[i].neurons = cfg.neurons[i];

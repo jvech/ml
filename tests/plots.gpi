@@ -11,10 +11,12 @@ predict_cmd = "<./ml predict %s -c %s | ".sprintf(json2tsv, "-")
 # --
 data_gauss1d = "data/gauss1d.json"
 data_xor = "data/xor.json"
+data_sine = "data/sine.json"
 
 # --
 arch_gauss1d = "tests/architectures/gauss1d.cfg"
 arch_xor = "tests/architectures/xor.cfg"
+arch_sine = "tests/architectures/sine.cfg"
 
 
 set ylabel arch_gauss1d
@@ -26,12 +28,21 @@ unset ylabel
 plot sprintf(predict_cmd, data_gauss1d, arch_gauss1d) with lines title 'network',\
      "<".sprintf(json2tsv, data_gauss1d) with lines title 'original'
 
-set ylabel arch_xor
+#set ylabel arch_xor
+#set logscale x
+#plot sprintf(train_cmd, data_xor, arch_xor) u 2:4 with lines title 'loss'
+#unset logscale
+#unset ylabel
+#
+#set table "/dev/stdout"
+#plot "<".sprintf(json2tsv, data_xor) using 1:2:3 with table,\
+#     sprintf(predict_cmd, data_xor, arch_xor)  using 3 with table
+
+set ylabel arch_sine
 set logscale x
-plot sprintf(train_cmd, data_xor, arch_xor) u 2:4 with lines title 'loss'
+plot sprintf(train_cmd, data_sine, arch_sine) u 2:4 with lines title 'loss'
 unset logscale
 unset ylabel
 
-set table "/dev/stdout" 
-plot "<".sprintf(json2tsv, data_xor) using 1:2:3 with table,\
-     sprintf(predict_cmd, data_xor, arch_xor)  using 3 with table
+plot sprintf(predict_cmd, data_sine, arch_sine) with lines title 'network',\
+     "<".sprintf(json2tsv, data_sine) with lines title 'original'
