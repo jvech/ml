@@ -30,6 +30,7 @@ double softplus(double x);
 double dsoftplus(double x);
 double linear(double x);
 double dlinear(double x);
+double dtanh(double x);
 
 struct Activation NN_LEAKY_RELU = {
     .func = leaky_relu,
@@ -56,6 +57,11 @@ struct Activation NN_LINEAR = {
     .dfunc = dlinear,
 };
 
+struct Activation NN_TANH = {
+    .func = tanh,
+    .dfunc = dtanh,
+};
+
 double linear(double x) {return x;}
 double dlinear(double x) {return 1.0;}
 
@@ -70,3 +76,5 @@ double dleaky_relu(double x) { return (x > 0) ? 1 : 0.01; }
 
 double softplus(double x) { return log1p(exp(x)); }
 double dsoftplus(double x) { return sigmoid(x); }
+
+double dtanh(double x) {return 1 - tanh(x) * tanh(x);};
