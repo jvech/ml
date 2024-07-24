@@ -20,9 +20,10 @@ void json_read(
 void csv_read(
         FILE *fp,
         Array *input, Array *out,
-        size_t in_cols[], size_t in_cols_size,
-        size_t out_cols[], size_t out_cols_size,
+        char *in_cols[], size_t in_cols_size,
+        char *out_cols[], size_t out_cols_size,
         bool read_output,
+        bool has_header,
         char separator
         );
 #endif
