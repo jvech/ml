@@ -13,6 +13,7 @@ struct Configs {
     char *weights_filepath;
     char *config_filepath;
     /* cli cfgs */
+    char *file_format;
     char *in_filepath;
     char *out_filepath;
     /* layer cfgs */

@@ -152,20 +152,16 @@ void csv_read(
     in_cols = ecalloc(n_in_cols, sizeof(size_t));
     csv_keys2cols(in_cols, in_keys, n_in_cols);
 
-    if (read_output) {
-        out_cols = ecalloc(n_out_cols, sizeof(size_t));
-        csv_keys2cols(out_cols, out_keys, n_out_cols);
-    }
+    out_cols = ecalloc(n_out_cols, sizeof(size_t));
+    csv_keys2cols(out_cols, out_keys, n_out_cols);
 
     input->shape[0] = 1;
     input->shape[1] = n_in_cols;
     input->data = ecalloc(input->shape[1], sizeof(double));
 
-    if (read_output) {
-        out->shape[0] = 1;
-        out->shape[1] = n_out_cols;
-        out->data = ecalloc(input->shape[1], sizeof(double));
-    }
+    out->shape[0] = 1;
+    out->shape[1] = n_out_cols;
+    out->data = ecalloc(out->shape[1], sizeof(double));
 
     fgets(line_buffer, 1024, fp);
     for (line_ptr = line_buffer; *line_ptr != '\0'; line_ptr++) {
@@ -178,7 +174,9 @@ void csv_read(
 
     csv_readline_values(num_buffer, num_buffer_length, line_buffer, 1, separator);
     csv_columns_select(input->data + line * input->shape[1], num_buffer, in_cols, n_in_cols, num_buffer_length);
-    if (read_output) csv_columns_select(out->data + line * out->shape[1], num_buffer, out_cols, n_out_cols, num_buffer_length);
+    if (read_output) {
+        csv_columns_select(out->data + line * out->shape[1], num_buffer, out_cols, n_out_cols, num_buffer_length);
+    }
 
     for (line = 1; fgets(line_buffer, 1024, fp) != NULL; line++) {
         csv_readline_values(num_buffer, num_buffer_length, line_buffer, line+1, separator);
@@ -187,9 +185,9 @@ void csv_read(
         input->data = erealloc(input->data, input->shape[0] * input->shape[1] * sizeof(double));
         csv_columns_select(input->data + line * input->shape[1], num_buffer, in_cols, n_in_cols, num_buffer_length);
 
+        out->shape[0]++;
+        out->data = erealloc(out->data, out->shape[0] * out->shape[1] * sizeof(double));
         if (read_output) {
-            out->shape[0]++;
-            out->data = erealloc(out->data, out->shape[0] * out->shape[1] * sizeof(double));
             csv_columns_select(out->data + line * out->shape[1], num_buffer, out_cols, n_out_cols, num_buffer_length);
         }
     }

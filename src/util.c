@@ -91,11 +91,12 @@ void usage(int exit_code)
 {
     FILE *fp = (!exit_code) ? stdout : stderr;
     fprintf(fp,
-            "Usage: ml train [Options] JSON_FILE\n"
+            "Usage: ml train [Options] FILE\n"
             "   or: ml predict [-o FILE] FILE\n"
             "\n"
             "Options:\n"
             "  -h, --help               Show this message\n"
+            "  -f, --format=FORMAT      File input and/or output format\n"
             "  -a, --alpha=ALPHA        Learning rate (only works with train)\n"
             "  -e, --epochs=EPOCHS      Epochs to train the model (only works with train)\n"
             "  -o, --output=FILE        Output file (only works with predict)\n"
@@ -111,6 +112,7 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
     static struct option long_opts[] = {
         {"help",        no_argument,        0, 'h'},
         {"version",     no_argument,        0, 'v'},
+        {"format",      required_argument,  0, 'f'},
         {"epochs",      required_argument,  0, 'e'},
         {"alpha",       required_argument,  0, 'a'},
         {"output",      required_argument,  0, 'o'},
@@ -120,7 +122,7 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
     int c;
 
     while (1) {
-        c = getopt_long(argc, argv, "hvc:e:a:o:i:l:", long_opts, NULL);
+        c = getopt_long(argc, argv, "hvc:e:a:o:i:f:", long_opts, NULL);
 
         if (c == -1) {
             break;
@@ -137,6 +139,9 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
             break;
         case 'c':
             ml->config_filepath = optarg;
+            break;
+        case 'f':
+            ml->file_format = optarg;
             break;
         case 'h':
             usage(0);

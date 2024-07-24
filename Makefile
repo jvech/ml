@@ -48,9 +48,12 @@ run: build
 	@jq -r '.[] | [values[] as $$val | $$val] | @tsv' data/sample_data.json > data/sample_data.tsv
 	@gnuplot utils/plot.gpi
 
+test_%: src/%.c $(OBJDIR)
+	$(shell sed -n 's/.*compile: clang/clang/;/clang/p' $<)
+
 debug: build
 	gdb -x utils/commands.gdb --tui --args ${BIN} train data/xor.json -e 100
 	@#gdb -x utils/commands.gdb --tui --args ${BIN} predict data/sample_data.json
 
 clean:
-	@rm $(OBJS) $(OBJDIR) -rv
+	@rm $(OBJDIR) -rv
