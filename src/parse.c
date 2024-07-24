@@ -1,11 +1,30 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 #include <json-c/json.h>
 
 #include "util.h"
 #include "parse.h"
 
 #define MAX_FILE_SIZE 536870912 //1<<29; 0.5 GiB
+
+static void json_read(
+        FILE *fp,
+        Array *input, Array *out,
+        char *in_keys[], size_t in_keys_size,
+        char *out_keys[], size_t out_keys_size,
+        bool read_output
+        );
+
+static void csv_read(
+        FILE *fp,
+        Array *input, Array *out,
+        char *in_cols[], size_t in_cols_size,
+        char *out_cols[], size_t out_cols_size,
+        bool read_output,
+        bool has_header,
+        char separator
+        );
 
 static void csv_columns_select(
         double *dst_row, double *src_row,
@@ -19,11 +38,48 @@ static void csv_readline_values(
 
 static void csv_keys2cols(size_t cols[], char *keys[], size_t keys_size);
 
+void file_read(
+        char *filepath,
+        Array *input, Array *out,
+        char *in_keys[], size_t n_in_keys,
+        char *out_keys[], size_t n_out_keys,
+        bool read_output,
+        char *file_format)
+{
+    FILE *fp;
+    char *ptr;
+    int i, string_length;
+
+    fp = (!strcmp(filepath, "-")) ? fopen("/dev/stdin", "r") : fopen(filepath, "r");
+    if (fp == NULL) die("file_read() Error:");
+
+    if (file_format == NULL && !strcmp(filepath, "-")) {
+        die("file_read() Error: on standard input the format must be defined");
+    }
+
+    if (file_format == NULL) {
+        string_length = strlen(filepath);
+        ptr = filepath + string_length;
+        for (i = string_length; i > 0 && *ptr != '.'; ptr--, i--);
+        if (*ptr != '.' || i == 0) die("file_read() Error: unable to infer %s format", filepath);
+        file_format = ptr + 1;
+    }
+
+    if (!strcmp(file_format, "csv"))        csv_read(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, read_output, false, ',');
+    else if (!strcmp(file_format, "tsv"))   csv_read(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, read_output, false, '\t');
+    else if (!strcmp(file_format, "json"))  json_read(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, read_output);
+    else {
+        die("file_read() Error: unable to parse %s files", file_format);
+    }
+
+    fclose(fp);
+}
+
 void json_read(
         FILE *fp,
         Array *input, Array *out,
-        char *out_keys[], size_t n_out_keys,
         char *in_keys[], size_t n_input_keys,
+        char *out_keys[], size_t n_out_keys,
         bool read_output)
 {
     static char fp_buffer[MAX_FILE_SIZE];
@@ -68,8 +124,6 @@ void json_read(
     }
 
     json_object_put(json_obj);
-    fclose(fp);
-
     return;
 
 json_read_error:
@@ -92,7 +146,6 @@ void csv_read(
     double *num_buffer;
     size_t line = 0, num_buffer_length = 1; 
     size_t *in_cols, *out_cols;
-    int ret;
 
     if (fp == NULL) die("csv_read() Error:");
 
@@ -151,14 +204,21 @@ void csv_columns_select(
         size_t selected_cols[], size_t cols_size,
         size_t src_cols_number)
 {
-    size_t i;
+    size_t i, selected_col;
     for (i = 0; i < cols_size; i++) {
-        if (selected_cols[i] >= src_cols_number) {
+
+        if (selected_cols[i] == 0) {
+            die("csv_columns_select() Error: invalid %zu column, use 1-indexing",
+                selected_cols[i]);
+        }
+
+        selected_col = selected_cols[i] - 1;
+        if (selected_col >= src_cols_number) {
             die("csv_columns_select() Error: "
-                "selected col '%zu' is greater than src cols '%zu'",
+                "selected column %zu outranges row columns size %zu",
                 selected_cols[i], src_cols_number);
         }
-        dst_row[i] = src_row[selected_cols[i]];
+        dst_row[i] = src_row[selected_col];
     }
 }
 
@@ -168,9 +228,8 @@ void csv_readline_values(
         char separator)
 {
     char *line_ptr;
-    size_t col, i, ret_error;
+    size_t col;
     int offset;
-    int ret;
 
     for (col = 0, offset = 0, line_ptr = line_buffer;
          col < num_buffer_length
@@ -211,31 +270,56 @@ void csv_keys2cols(size_t cols[], char *keys[], size_t keys_size)
 #ifdef PARSE_TEST
 #include <assert.h>
 #include <string.h>
-// clang -g -DPARSE_TEST -o objs/parse_test src/{utils,parse}.c $(pkg-config --libs-only json-c)
-int main(int argc, char *argv[]) {
-    FILE *fp;
-    char *filename, separator;
+/*
+ * compile: clang -Wall -g -DPARSE_TEST -o objs/test_parse src/util.c src/parse.c $(pkg-config --libs-only-l json-c)
+ */
+size_t parse_keys(char *keys[], char *argv, char key_buffer[512])
+{
+    size_t keys_length = 0;
+    char *keys_buffer, *key;
 
-    if (argc < 2 || argc > 3) {
-        fprintf(stderr, "usage: parse_test FILENAME [SEPARATOR]\n");
+    keys_buffer = e_strdup(argv);
+    key = strtok_r(keys_buffer, ", ", &key_buffer);
+    keys[keys_length++] = e_strdup(key);
+    while ((key = strtok_r(NULL, ", ", &key_buffer))) {
+        if (keys_length + 1 > 32) {
+            die("parse_keys() Error: keys_buffer overflow you can put more "
+                "than 32 keys using this test program");
+        }
+        keys[keys_length++] = e_strdup(key);
+    }
+    free(keys_buffer);
+    return keys_length;
+}
+
+int main(int argc, char *argv[]) {
+    char *filename, *format;
+    size_t i, j;
+
+    if (argc < 4 || argc > 5) {
+        fprintf(stderr,
+                "Usage: parse_test FILENAME IN_KEYS OUT_KEYS [FORMAT]\n"
+                "\nKeys format:\n"
+                "  IN_KEYS: in_key1, in_key2, ...\n"
+                "  OUT_KEYS: out_key1, out_key2, ...\n\n");
         return 1;
     }
 
     filename = argv[1];
-    separator = ',';
-    if (argc == 3) {
-        assert(strlen(argv[2]) == 1 && "SEPARATOR must be a character");
-        separator = argv[2][0];
+    format = NULL;
+    if (argc == 5) {
+        format = argv[4];
     }
 
-    fp = fopen(filename, "r");
-    if (fp == NULL) die("fopen() Error:");
     Array X, y;
-    char *in_cols[] = {"1", "2"};
-    char *out_cols[] = {"0"};
-    csv_read(fp, &X, &y, in_cols, 2, out_cols, 1, true, true, separator);
+    char *in_cols[32], *out_cols[32], keys_buffer[512];
+    size_t n_in_cols, n_out_cols;
 
-    size_t i, j;
+    n_in_cols = parse_keys(in_cols, argv[2], keys_buffer);
+    n_out_cols = parse_keys(out_cols, argv[3], keys_buffer);
+
+    file_read(filename, &X, &y, in_cols, 2, out_cols, 1, true, format);
+
     for (i = 0; i < X.shape[0]; i++) {
         for (j = 0; j < X.shape[1]; j++) {
             printf("%*.2e\t", 4, X.data[i * X.shape[1] + j]);
@@ -249,6 +333,10 @@ int main(int argc, char *argv[]) {
         printf("\n");
 
     }
+
+    for (i = 0; i < n_in_cols; i++) free(in_cols[i]);
+    for (i = 0; i < n_out_cols; i++) free(out_cols[i]);
+
     return 0;
 }
 #endif

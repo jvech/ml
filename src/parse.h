@@ -9,21 +9,13 @@ typedef struct Array {
     size_t shape[2];
 } Array;
 
-void json_read(
-        FILE *fp,
-        Array *input, Array *out,
-        char *out_keys[], size_t out_keys_size,
-        char *in_keys[], size_t in_keys_size,
-        bool read_output
-        );
 
-void csv_read(
-        FILE *fp,
+void file_read(
+        char *filepath,
         Array *input, Array *out,
-        char *in_cols[], size_t in_cols_size,
-        char *out_cols[], size_t out_cols_size,
+        char *in_keys[], size_t n_in_keys,
+        char *out_keys[], size_t n_out_keys,
         bool read_output,
-        bool has_header,
-        char separator
+        char *file_format
         );
 #endif
