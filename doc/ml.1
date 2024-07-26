@@ -7,7 +7,7 @@ ml \- manual page for ml 0.1
 \fI\,train \/\fR[\fI\,Options\/\fR] \fI\,FILE\/\fR
 .br
 .B ml
-\fI\,predict \/\fR[\fI\,-o FILE\/\fR] \fI\,FILE\/\fR
+\fI\,predict \/\fR[\fI\,-Ohv\/\fR] [\fI\,-f FORMAT\/\fR] [\fI\,-o FILE\/\fR] \fI\,FILE\/\fR
 .SH DESCRIPTION
 ml is a simple neural network maker made to train and predict JSON data,
 it is suitable to work on classification problems.
@@ -17,7 +17,7 @@ it is suitable to work on classification problems.
 Show this message
 .TP
 \fB\-f\fR, \fB\-\-format\fR=\fI\,FORMAT\/\fR
-File input and/or output format
+Define input or output FILE format if needed
 .TP
 \fB\-a\fR, \fB\-\-alpha\fR=\fI\,ALPHA\/\fR
 Learning rate (only works with train)
@@ -27,6 +27,9 @@ Epochs to train the model (only works with train)
 .TP
 \fB\-o\fR, \fB\-\-output\fR=\fI\,FILE\/\fR
 Output file (only works with predict)
+.TP
+\fB\-O\fR, \fB\-\-only\-out\fR
+Don't show input fields (only works with predict)
 .TP
 \fB\-c\fR, \fB\-\-config\fR=\fI\,FILE\/\fR
 Configuration filepath [default=~/.config/ml/ml.cfg]

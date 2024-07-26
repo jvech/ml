@@ -1,3 +1,21 @@
+/**
+ * ml - a neural network processor written with C
+ * Copyright (C) 2023  jvech
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -26,6 +44,21 @@ static void csv_read(
         char separator
         );
 
+static void json_write(
+        FILE *fp,
+        Array input, Array out,
+        char *in_keys[], size_t in_keys_size,
+        char *out_keys[], size_t out_keys_size,
+        bool write_input
+        );
+
+static void csv_write(
+        FILE *fp,
+        Array input, Array out,
+        bool write_input,
+        char separator
+        );
+
 static void csv_columns_select(
         double *dst_row, double *src_row,
         size_t selected_cols[], size_t cols_size,
@@ -38,6 +71,7 @@ static void csv_readline_values(
 
 static void csv_keys2cols(size_t cols[], char *keys[], size_t keys_size);
 
+
 void file_read(
         char *filepath,
         Array *input, Array *out,
@@ -47,22 +81,19 @@ void file_read(
         char *file_format)
 {
     FILE *fp;
-    char *ptr;
-    int i, string_length;
 
-    fp = (!strcmp(filepath, "-")) ? fopen("/dev/stdin", "r") : fopen(filepath, "r");
-    if (fp == NULL) die("file_read() Error:");
-
-    if (file_format == NULL && !strcmp(filepath, "-")) {
-        die("file_read() Error: on standard input the format must be defined");
+    if (filepath != NULL && strcmp(filepath, "-")) {
+        fp = fopen(filepath, "r");
+        file_format = file_format_infer(filepath);
+    } else {
+        fp = fopen("/dev/stdin", "r");
+        if (file_format == NULL) {
+            die("file_read() Error: file format must be defined");
+        }
     }
 
     if (file_format == NULL) {
-        string_length = strlen(filepath);
-        ptr = filepath + string_length;
-        for (i = string_length; i > 0 && *ptr != '.'; ptr--, i--);
-        if (*ptr != '.' || i == 0) die("file_read() Error: unable to infer %s format", filepath);
-        file_format = ptr + 1;
+        file_format = file_format_infer(filepath);
     }
 
     if (!strcmp(file_format, "csv"))        csv_read(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, read_output, false, ',');
@@ -75,6 +106,38 @@ void file_read(
     fclose(fp);
 }
 
+void file_write(
+        char *filepath,
+        Array input, Array out,
+        char *in_keys[], size_t n_in_keys,
+        char *out_keys[], size_t n_out_keys,
+        bool write_input,
+        char *file_format)
+{
+    FILE *fp;
+
+
+    if (filepath != NULL && strcmp(filepath, "-")) {
+        fp = fopen(filepath, "w");
+        file_format = file_format_infer(filepath);
+    } else {
+        fp = fopen("/dev/stdout", "w");
+        if (file_format == NULL) {
+            die("file_write() Error: file format must be defined");
+        }
+    }
+
+    if (fp == NULL) die("file_write() Error:");
+
+    if (!strcmp(file_format, "json"))       json_write(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, write_input);
+    else if (!strcmp(file_format, "csv"))   csv_write(fp, input, out, write_input, ',');
+    else if (!strcmp(file_format, "tsv"))   csv_write(fp, input, out, write_input, '\t');
+    else {
+        die("file_write() Error: unable to write %s files", file_format);
+    }
+    fclose(fp);
+}
+
 void json_read(
         FILE *fp,
         Array *input, Array *out,
@@ -83,11 +146,12 @@ void json_read(
         bool read_output)
 {
     static char fp_buffer[MAX_FILE_SIZE];
+    size_t i, j, json_obj_length, index;
 
 
     if (fp == NULL) goto json_read_error;
 
-    size_t i = 0;
+    i = 0;
     do {
         if (i >= MAX_FILE_SIZE) die("json_read() Error: file size is bigger than '%zu'", i, MAX_FILE_SIZE);
         fp_buffer[i] = fgetc(fp);
@@ -95,7 +159,7 @@ void json_read(
 
     json_object *json_obj;
     json_obj = json_tokener_parse(fp_buffer);
-    size_t json_obj_length = json_object_array_length(json_obj);
+    json_obj_length = json_object_array_length(json_obj);
 
     input->shape[0] = (size_t)json_obj_length;
     input->shape[1] = n_input_keys;
@@ -107,18 +171,18 @@ void json_read(
 
     if (!input->data || !out->data) goto json_read_error;
 
-    for (int i = 0; i < json_object_array_length(json_obj); i++) {
+    for (i = 0; i < json_object_array_length(json_obj); i++) {
         json_object *item = json_object_array_get_idx(json_obj, i);
 
-        for (int j = 0; j < n_input_keys; j++) {
-            size_t index = n_input_keys * i + j;
+        for (j = 0; j < n_input_keys; j++) {
+            index = n_input_keys * i + j;
             input->data[index] = json_object_get_double(json_object_object_get(item, in_keys[j]));
         }
 
         if (!read_output) continue;
 
-        for (int j = 0; j < n_out_keys; j++) {
-            size_t index =  n_out_keys * i + j;
+        for (j = 0; j < n_out_keys; j++) {
+            index =  n_out_keys * i + j;
             out->data[index] = json_object_get_double(json_object_object_get(item, out_keys[j]));
         }
     }
@@ -197,6 +261,74 @@ void csv_read(
     return;
 }
 
+void json_write(
+        FILE *fp,
+        Array input, Array out,
+        char *in_keys[], size_t in_keys_size,
+        char *out_keys[], size_t out_keys_size,
+        bool write_input)
+{
+    fprintf(fp, "[\n");
+
+    if (in_keys_size != input.shape[1] && write_input) {
+        die("json_write() Error: there are more keys (%zu) than input columns (%zu)",
+            in_keys_size, input.shape[1]);
+    }
+
+    if (out_keys_size != out.shape[1]) {
+        die("json_write() Error: there are more keys (%zu) than output columns (%zu)",
+            out_keys_size, out.shape[1]);
+    }
+
+    for (size_t i = 0; i < input.shape[0]; i++) {
+        fprintf(fp, "  {\n");
+
+        if (write_input) {
+            for (size_t j = 0; j < input.shape[1]; j++) {
+                size_t index = input.shape[1] * i + j;
+                fprintf(fp, "    \"%s\": %lf,\n", in_keys[j], input.data[index]);
+            }
+        }
+
+        for (size_t j = 0; j < out.shape[1]; j++) {
+            size_t index = out.shape[1] * i + j;
+            fprintf(fp, "    \"%s\": %lf", out_keys[j], out.data[index]);
+
+            if (j == out.shape[1] - 1) fprintf(fp, "\n");
+            else fprintf(fp, ",\n");
+        }
+
+        if (i == input.shape[0] - 1) fprintf(fp, "  }\n");
+        else fprintf(fp, "  },\n");
+    }
+    fprintf(fp, "]\n");
+}
+
+void csv_write(
+        FILE *fp,
+        Array input, Array out,
+        bool write_input,
+        char separator
+        )
+{
+    size_t line, col, index;
+    for (line = 0; line < input.shape[0]; line++) {
+        if (write_input) {
+            for (col = 0; col < input.shape[1]; col++) {
+                index = input.shape[1] * line + col;
+                fprintf(fp, "%lf%c", input.data[index], separator);
+            }
+        }
+        for (col = 0; col < out.shape[1]; col++) {
+            index = out.shape[1] * line + col;
+            fprintf(fp, "%lf", out.data[index]);
+            if (col == out.shape[1] - 1) continue;
+            fprintf(fp, "%c", separator);
+        }
+        fprintf(fp, "\n");
+    }
+}
+
 void csv_columns_select(
         double *dst_row, double *src_row,
         size_t selected_cols[], size_t cols_size,
@@ -265,11 +397,27 @@ void csv_keys2cols(size_t cols[], char *keys[], size_t keys_size)
     }
 }
 
+char * file_format_infer(char *filename)
+{
+    char *file_format, *ptr;
+    size_t string_length, i;
+
+    string_length = strlen(filename);
+    ptr = filename + string_length;
+    for (i = string_length; i > 0 && *ptr != '.'; ptr--, i--);
+    if (*ptr != '.' || i == 0) {
+        die("file_format_infer() Error: unable to infer %s format", filename);
+    }
+    file_format = ptr + 1;
+    return file_format;
+}
+
+
 #ifdef PARSE_TEST
 #include <assert.h>
 #include <string.h>
 /*
- * compile: clang -Wall -g -DPARSE_TEST -o objs/test_parse src/util.c src/parse.c $(pkg-config --libs-only-l json-c)
+ * compile: clang -Wall -Wextra -g -DPARSE_TEST -o objs/test_parse src/util.c src/parse.c $(pkg-config --libs-only-l json-c)
  */
 size_t parse_keys(char *keys[], char *argv, char key_buffer[512])
 {
@@ -291,47 +439,51 @@ size_t parse_keys(char *keys[], char *argv, char key_buffer[512])
 }
 
 int main(int argc, char *argv[]) {
-    char *filename, *format;
+    char *in_file, *out_file, *format;
     size_t i, j;
 
-    if (argc < 4 || argc > 5) {
+    if (argc != 5 && argc != 6) {
         fprintf(stderr,
-                "Usage: parse_test FILENAME IN_KEYS OUT_KEYS [FORMAT]\n"
+                "Usage: parse_test IN_FILE OUT_FILE IN_KEYS OUT_KEYS [FORMAT]\n"
                 "\nKeys format:\n"
                 "  IN_KEYS: in_key1, in_key2, ...\n"
                 "  OUT_KEYS: out_key1, out_key2, ...\n\n");
         return 1;
     }
 
-    filename = argv[1];
+    in_file = argv[1];
+    out_file = argv[2];
     format = NULL;
-    if (argc == 5) {
-        format = argv[4];
+    if (argc == 6) {
+        format = argv[5];
     }
 
     Array X, y;
     char *in_cols[32], *out_cols[32], keys_buffer[512];
     size_t n_in_cols, n_out_cols;
 
-    n_in_cols = parse_keys(in_cols, argv[2], keys_buffer);
-    n_out_cols = parse_keys(out_cols, argv[3], keys_buffer);
+    n_in_cols = parse_keys(in_cols, argv[3], keys_buffer);
+    n_out_cols = parse_keys(out_cols, argv[4], keys_buffer);
 
-    file_read(filename, &X, &y, in_cols, 2, out_cols, 1, true, format);
+    file_read(in_file, &X, &y, in_cols, n_in_cols, out_cols, n_out_cols, true, format);
 
     for (i = 0; i < X.shape[0]; i++) {
         for (j = 0; j < X.shape[1]; j++) {
-            printf("%*.2e\t", 4, X.data[i * X.shape[1] + j]);
+            fprintf(stderr, "%.2e\t", X.data[i * X.shape[1] + j]);
         }
 
         for (j = 0; j < y.shape[1]; j++) {
-            if (j == 0) printf("|\t");
-            printf("%5.2e", y.data[i * y.shape[1] + j]);;
+            if (j == 0) fprintf(stderr, "|\t");
+            fprintf(stderr, "%.2e", y.data[i * y.shape[1] + j]);;
             if (j < y.shape[1] - 1) printf("\t");
         }
-        printf("\n");
+        fprintf(stderr, "\n");
 
     }
 
+    // use input format if format variable is not defined
+    format = (!format && !strcmp(out_file, "-")) ? file_format_infer(in_file) : format;
+    file_write(out_file, X, y, in_cols, n_in_cols, out_cols, n_out_cols, true, format);
     for (i = 0; i < n_in_cols; i++) free(in_cols[i]);
     for (i = 0; i < n_out_cols; i++) free(out_cols[i]);
 

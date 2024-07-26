@@ -1,6 +1,7 @@
 #ifndef UTIL_
 #define UTIL_
 
+#include <stdbool.h>
 #include <stddef.h>
 
 struct Configs {
@@ -16,6 +17,7 @@ struct Configs {
     char *file_format;
     char *in_filepath;
     char *out_filepath;
+    bool only_out;
     /* layer cfgs */
     size_t network_size;
     size_t *neurons;

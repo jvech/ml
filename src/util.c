@@ -92,14 +92,15 @@ void usage(int exit_code)
     FILE *fp = (!exit_code) ? stdout : stderr;
     fprintf(fp,
             "Usage: ml train [Options] FILE\n"
-            "   or: ml predict [-o FILE] FILE\n"
+            "   or: ml predict [-Ohv] [-f FORMAT] [-o FILE] FILE\n"
             "\n"
             "Options:\n"
             "  -h, --help               Show this message\n"
-            "  -f, --format=FORMAT      File input and/or output format\n"
+            "  -f, --format=FORMAT      Define input or output FILE format if needed\n"
             "  -a, --alpha=ALPHA        Learning rate (only works with train)\n"
             "  -e, --epochs=EPOCHS      Epochs to train the model (only works with train)\n"
             "  -o, --output=FILE        Output file (only works with predict)\n"
+            "  -O, --only-out           Don't show input fields (only works with predict)\n"
             "  -c, --config=FILE        Configuration filepath [default=~/.config/ml/ml.cfg]\n"
             "\n"
            );
@@ -117,12 +118,13 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
         {"alpha",       required_argument,  0, 'a'},
         {"output",      required_argument,  0, 'o'},
         {"config",      required_argument,  0, 'c'},
+        {"only-out",    no_argument,        0, 'O'},
         {0,             0,                  0,  0 },
     };
     int c;
 
     while (1) {
-        c = getopt_long(argc, argv, "hvc:e:a:o:i:f:", long_opts, NULL);
+        c = getopt_long(argc, argv, "hvOc:e:a:o:i:f:", long_opts, NULL);
 
         if (c == -1) {
             break;
@@ -143,12 +145,18 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
         case 'f':
             ml->file_format = optarg;
             break;
+        case 'O':
+            ml->only_out = true;
+            break;
         case 'h':
             usage(0);
+            break;
         case 'v':
             version();
+            break;
         default:
             usage(1);
+            break;
         }
     }
 

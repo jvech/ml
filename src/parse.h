@@ -18,4 +18,14 @@ void file_read(
         bool read_output,
         char *file_format
         );
+
+void file_write(
+        char *filepath,
+        Array input, Array out,
+        char *in_keys[], size_t n_in_keys,
+        char *out_keys[], size_t n_out_keys,
+        bool write_input,
+        char *file_format);
+
+char * file_format_infer(char *filename);
 #endif
