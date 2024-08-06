@@ -76,7 +76,7 @@ char *e_strdup(const char *s)
 
 void version()
 {
-    printf("ml 0.1\n");
+    printf("ml 0.2.0\n");
     printf( "Copyright (C) 2023  jvech\n\n"
             "This program is free software: you can redistribute it and/or modify\n"
             "it under the terms of the GNU General Public License as published by\n"
@@ -92,7 +92,7 @@ void usage(int exit_code)
     FILE *fp = (!exit_code) ? stdout : stderr;
     fprintf(fp,
             "Usage: ml train [Options] FILE\n"
-            "   or: ml predict [-Ohv] [-f FORMAT] [-o FILE] FILE\n"
+            "   or: ml predict [-Ohv] [-f FORMAT] [-o FILE] [-p INT] FILE\n"
             "\n"
             "Options:\n"
             "  -h, --help               Show this message\n"
@@ -102,6 +102,8 @@ void usage(int exit_code)
             "  -o, --output=FILE        Output file (only works with predict)\n"
             "  -O, --only-out           Don't show input fields (only works with predict)\n"
             "  -c, --config=FILE        Configuration filepath [default=~/.config/ml/ml.cfg]\n"
+            "  -p, --precision=INT      Decimals output precision (only works with predict)\n"
+            "                           [default=auto]\n"
             "\n"
            );
     exit(exit_code);
@@ -119,12 +121,13 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
         {"output",      required_argument,  0, 'o'},
         {"config",      required_argument,  0, 'c'},
         {"only-out",    no_argument,        0, 'O'},
+        {"precision",   required_argument,  0, 'p'},
         {0,             0,                  0,  0 },
     };
     int c;
 
     while (1) {
-        c = getopt_long(argc, argv, "hvOc:e:a:o:i:f:", long_opts, NULL);
+        c = getopt_long(argc, argv, "hvOc:e:a:o:i:f:p:", long_opts, NULL);
 
         if (c == -1) {
             break;
@@ -147,6 +150,9 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
             break;
         case 'O':
             ml->only_out = true;
+            break;
+        case 'p':
+            ml->decimal_precision = (!strcmp("auto", optarg))? -1: (int)atoi(optarg);
             break;
         case 'h':
             usage(0);

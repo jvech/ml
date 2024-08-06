@@ -17,6 +17,7 @@ struct Configs {
     char *file_format;
     char *in_filepath;
     char *out_filepath;
+    int decimal_precision;
     bool only_out;
     /* layer cfgs */
     size_t network_size;

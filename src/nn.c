@@ -154,7 +154,7 @@ void nn_backward(
     }
 
     for (size_t sample = 0; sample < input_shape[0]; sample++) {
-        for (size_t l = network_size - 1; l >= 0 && l < network_size; l--) {
+        for (size_t l = network_size - 1; l < network_size; l--) {
             size_t weights_shape[2] = {network[l].input_nodes, network[l].neurons};
             if (l == network_size - 1) {
                 double *zout = Zout[l] + sample * network[l].neurons;
@@ -328,6 +328,7 @@ void nn_network_read_weights(char *filepath, Layer *network, size_t network_size
     return;
 
 nn_network_read_weights_error:
+    fclose(fp);
     die("nn_network_read_weights() Error: "
         "number of read objects does not match with expected ones");
 }
@@ -357,14 +358,14 @@ void nn_network_write_weights(char *filepath, Layer *network, size_t network_siz
     return;
 
 nn_network_write_weights_error:
+    fclose(fp);
     die("nn_network_write_weights() Error: "
         "number of written objects does not match with number of objects");
 }
 
 void nn_network_init_weights(Layer layers[], size_t nmemb, size_t n_inputs, bool fill_random)
 {
-    int i;
-    size_t prev_size = n_inputs;
+    size_t i, prev_size = n_inputs;
 
 
     for (i = 0; i < nmemb;  i++) {
@@ -390,7 +391,8 @@ nn_layers_calloc_weights_error:
 
 void nn_network_free_weights(Layer layers[], size_t nmemb)
 {
-    for (int i = 0; i < nmemb; i++) {
+    size_t i;
+    for (i = 0; i < nmemb; i++) {
         free(layers[i].weights);
         free(layers[i].bias);
     }

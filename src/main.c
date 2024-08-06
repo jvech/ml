@@ -95,6 +95,7 @@ int main(int argc, char *argv[]) {
         .config_filepath = "utils/settings.cfg",
         .network_size = 0,
         .only_out = false,
+        .decimal_precision = -1,
         .file_format = NULL,
         .out_filepath = NULL,
     };
@@ -146,7 +147,8 @@ int main(int argc, char *argv[]) {
         file_write(ml_configs.out_filepath, X, y,
                    ml_configs.input_keys, ml_configs.n_input_keys,
                    ml_configs.label_keys, ml_configs.n_label_keys,
-                   !ml_configs.only_out, ml_configs.file_format);
+                   !ml_configs.only_out, ml_configs.file_format,
+                   ml_configs.decimal_precision);
     } else usage(1);
 
     nn_network_free_weights(network, ml_configs.network_size);

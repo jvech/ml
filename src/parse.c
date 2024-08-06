@@ -49,14 +49,16 @@ static void json_write(
         Array input, Array out,
         char *in_keys[], size_t in_keys_size,
         char *out_keys[], size_t out_keys_size,
-        bool write_input
+        bool write_input,
+        int decimal_precision
         );
 
 static void csv_write(
         FILE *fp,
         Array input, Array out,
         bool write_input,
-        char separator
+        char separator,
+        int decimal_precision
         );
 
 static void csv_columns_select(
@@ -112,7 +114,8 @@ void file_write(
         char *in_keys[], size_t n_in_keys,
         char *out_keys[], size_t n_out_keys,
         bool write_input,
-        char *file_format)
+        char *file_format,
+        int decimal_precision)
 {
     FILE *fp;
 
@@ -129,9 +132,9 @@ void file_write(
 
     if (fp == NULL) die("file_write() Error:");
 
-    if (!strcmp(file_format, "json"))       json_write(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, write_input);
-    else if (!strcmp(file_format, "csv"))   csv_write(fp, input, out, write_input, ',');
-    else if (!strcmp(file_format, "tsv"))   csv_write(fp, input, out, write_input, '\t');
+    if (!strcmp(file_format, "json"))       json_write(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, write_input, decimal_precision);
+    else if (!strcmp(file_format, "csv"))   csv_write(fp, input, out, write_input, ',', decimal_precision);
+    else if (!strcmp(file_format, "tsv"))   csv_write(fp, input, out, write_input, '\t', decimal_precision);
     else {
         die("file_write() Error: unable to write %s files", file_format);
     }
@@ -147,6 +150,8 @@ void json_read(
 {
     static char fp_buffer[MAX_FILE_SIZE];
     size_t i, j, json_obj_length, index;
+    json_object *json_obj, *item, *value;
+    json_type obj_type;
 
 
     if (fp == NULL) goto json_read_error;
@@ -157,9 +162,13 @@ void json_read(
         fp_buffer[i] = fgetc(fp);
     } while (fp_buffer[i++] != EOF);
 
-    json_object *json_obj;
     json_obj = json_tokener_parse(fp_buffer);
+    if (!json_object_is_type(json_obj, json_type_array)) {
+        die("json_read() Error: unexpected JSON data received, expecting an array");
+    }
     json_obj_length = json_object_array_length(json_obj);
+
+
 
     input->shape[0] = (size_t)json_obj_length;
     input->shape[1] = n_input_keys;
@@ -172,18 +181,42 @@ void json_read(
     if (!input->data || !out->data) goto json_read_error;
 
     for (i = 0; i < json_object_array_length(json_obj); i++) {
-        json_object *item = json_object_array_get_idx(json_obj, i);
+        item = json_object_array_get_idx(json_obj, i);
+
+        if (!json_object_is_type(item, json_type_object)) {
+            die("json_read() Error: unexpected JSON data received, expecting an object");
+        }
 
         for (j = 0; j < n_input_keys; j++) {
-            index = n_input_keys * i + j;
-            input->data[index] = json_object_get_double(json_object_object_get(item, in_keys[j]));
+            value = json_object_object_get(item, in_keys[j]);
+            obj_type = json_object_get_type(value);
+            switch (obj_type) {
+            case json_type_double:
+            case json_type_int:
+                index = n_input_keys * i + j;
+                input->data[index] = json_object_get_double(value);
+                break;
+            default:
+                die("json_read() Error: unexpected JSON data received, expecting a number");
+                break;
+            }
         }
 
         if (!read_output) continue;
 
         for (j = 0; j < n_out_keys; j++) {
-            index =  n_out_keys * i + j;
-            out->data[index] = json_object_get_double(json_object_object_get(item, out_keys[j]));
+            value = json_object_object_get(item, out_keys[j]);
+            obj_type = json_object_get_type(value);
+            switch (obj_type) {
+            case json_type_double:
+            case json_type_int:
+                index =  n_out_keys * i + j;
+                out->data[index] = json_object_get_double(value);
+                break;
+            default:
+                die("json_read() Error: unexpected JSON data received, expecting a number");
+                break;
+            }
         }
     }
 
@@ -266,7 +299,8 @@ void json_write(
         Array input, Array out,
         char *in_keys[], size_t in_keys_size,
         char *out_keys[], size_t out_keys_size,
-        bool write_input)
+        bool write_input,
+        int decimal_precision)
 {
     fprintf(fp, "[\n");
 
@@ -286,13 +320,13 @@ void json_write(
         if (write_input) {
             for (size_t j = 0; j < input.shape[1]; j++) {
                 size_t index = input.shape[1] * i + j;
-                fprintf(fp, "    \"%s\": %lf,\n", in_keys[j], input.data[index]);
+                fprintf(fp, "    \"%s\": %g,\n", in_keys[j], input.data[index]);
             }
         }
 
         for (size_t j = 0; j < out.shape[1]; j++) {
             size_t index = out.shape[1] * i + j;
-            fprintf(fp, "    \"%s\": %lf", out_keys[j], out.data[index]);
+            fprintf(fp, "    \"%s\": %.*g", out_keys[j], decimal_precision, out.data[index]);
 
             if (j == out.shape[1] - 1) fprintf(fp, "\n");
             else fprintf(fp, ",\n");
@@ -308,20 +342,20 @@ void csv_write(
         FILE *fp,
         Array input, Array out,
         bool write_input,
-        char separator
-        )
+        char separator,
+        int decimal_precision)
 {
     size_t line, col, index;
     for (line = 0; line < input.shape[0]; line++) {
         if (write_input) {
             for (col = 0; col < input.shape[1]; col++) {
                 index = input.shape[1] * line + col;
-                fprintf(fp, "%lf%c", input.data[index], separator);
+                fprintf(fp, "%g%c", input.data[index], separator);
             }
         }
         for (col = 0; col < out.shape[1]; col++) {
             index = out.shape[1] * line + col;
-            fprintf(fp, "%lf", out.data[index]);
+            fprintf(fp, "%.*g", decimal_precision, out.data[index]);
             if (col == out.shape[1] - 1) continue;
             fprintf(fp, "%c", separator);
         }

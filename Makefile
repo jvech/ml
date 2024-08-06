@@ -1,7 +1,13 @@
 include config.mk
 
+# you can `export DEV_MODE=true` to compile the binaries with more warnings and debugging support
+ifdef DEV_MODE
+CFLAGS 	= -std=gnu11 -Wall -Wextra -g
+else
+CFLAGS 	= -std=gnu11 -Wall -O2
+endif
+
 CC 		= clang
-CFLAGS 	= -std=gnu11 -Wall -g
 BIN 	= ml
 OBJDIR 	= objs
 SRC 	= $(wildcard src/*.c)
