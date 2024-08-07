@@ -4,13 +4,13 @@
 ml \- manual page for ml 0.2.0
 .SH SYNOPSIS
 .B ml
-\fI\,train \/\fR[\fI\,Options\/\fR] \fI\,FILE\/\fR
+[\fI\,re\/\fR]\fI\,train \/\fR[\fI\,Options\/\fR] \fI\,FILE\/\fR
 .br
 .B ml
 \fI\,predict \/\fR[\fI\,-Ohv\/\fR] [\fI\,-f FORMAT\/\fR] [\fI\,-o FILE\/\fR] [\fI\,-p INT\/\fR] \fI\,FILE\/\fR
 .SH DESCRIPTION
-ml is a simple neural network maker made to train and predict JSON data,
-it is suitable to work on classification problems.
+ml is a simple neural network maker made to train and predict over JSON, CSV
+and TSV data, it is suitable to work on classification problems.
 .SH OPTIONS
 .TP
 \fB\-h\fR, \fB\-\-help\fR
@@ -37,6 +37,9 @@ Configuration filepath [default=~/.config/ml/ml.cfg]
 \fB\-p\fR, \fB\-\-precision\fR=\fI\,INT\/\fR
 Decimals output precision (only works with predict)
 [default=auto]
+.SH ENVIRONMENT
+ML_CONFIG_PATH
+    Set the configuration filepath
 .SH FILES
 ~/.config/ml/ml.cfg
     File path for network configuration, here you can setup the network

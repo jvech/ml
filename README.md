@@ -26,15 +26,20 @@ sudo make uninstall
 ## Usage
 
 ```
-Usage: ml train [Options] JSON_FILE
-   or: ml predict [-o FILE] FILE
+Usage: ml [re]train [Options] FILE
+   or: ml predict [-Ohv] [-f FORMAT] [-o FILE] [-p INT] FILE
 
 Options:
   -h, --help               Show this message
+  -f, --format=FORMAT      Define input or output FILE format if needed
   -a, --alpha=ALPHA        Learning rate (only works with train)
   -e, --epochs=EPOCHS      Epochs to train the model (only works with train)
   -o, --output=FILE        Output file (only works with predict)
+  -O, --only-out           Don't show input fields (only works with predict)
   -c, --config=FILE        Configuration filepath [default=~/.config/ml/ml.cfg]
+  -p, --precision=INT      Decimals output precision (only works with predict)
+                           [default=auto]
+
 
 
 Examples:

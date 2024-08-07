@@ -187,6 +187,11 @@ void json_read(
             die("json_read() Error: unexpected JSON data received, expecting an object");
         }
 
+        if ((size_t)json_object_object_length(item) < n_input_keys + n_out_keys) {
+            die("json_read() Error: the number of keys required is greater "
+                "than the keys available in the object:\n%s",
+                json_object_to_json_string_ext(item, JSON_C_TO_STRING_PRETTY));
+        }
         for (j = 0; j < n_input_keys; j++) {
             value = json_object_object_get(item, in_keys[j]);
             obj_type = json_object_get_type(value);
@@ -517,7 +522,7 @@ int main(int argc, char *argv[]) {
 
     // use input format if format variable is not defined
     format = (!format && !strcmp(out_file, "-")) ? file_format_infer(in_file) : format;
-    file_write(out_file, X, y, in_cols, n_in_cols, out_cols, n_out_cols, true, format);
+    file_write(out_file, X, y, in_cols, n_in_cols, out_cols, n_out_cols, true, format, -1);
     for (i = 0; i < n_in_cols; i++) free(in_cols[i]);
     for (i = 0; i < n_out_cols; i++) free(out_cols[i]);
 

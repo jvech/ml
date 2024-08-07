@@ -91,7 +91,7 @@ void usage(int exit_code)
 {
     FILE *fp = (!exit_code) ? stdout : stderr;
     fprintf(fp,
-            "Usage: ml train [Options] FILE\n"
+            "Usage: ml [re]train [Options] FILE\n"
             "   or: ml predict [-Ohv] [-f FORMAT] [-o FILE] [-p INT] FILE\n"
             "\n"
             "Options:\n"

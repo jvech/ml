@@ -11,3 +11,4 @@ utils/*.gpi
 *.bin
 utils/*.py
 tests/*.png
+issues.txt
