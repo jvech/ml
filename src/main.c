@@ -91,6 +91,7 @@ int main(int argc, char *argv[]) {
     char default_config_path[512], *env_config_path;
     struct Configs ml_configs = {
         .epochs = 100,
+        .batch_size = 32,
         .alpha = 1e-5,
         .config_filepath = "",
         .network_size = 0,
@@ -138,6 +139,7 @@ int main(int argc, char *argv[]) {
                 y.data, y.shape,
                 load_loss(ml_configs),
                 ml_configs.epochs,
+                ml_configs.batch_size,
                 ml_configs.alpha);
         nn_network_write_weights(ml_configs.weights_filepath, network, ml_configs.network_size);
         fprintf(stderr, "weights saved on '%s'\n", ml_configs.weights_filepath);

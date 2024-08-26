@@ -52,7 +52,8 @@ void nn_network_train(
         Layer network[], size_t network_size,
         double *input, size_t input_shape[2],
         double *labels, size_t labels_shape[2],
-        struct Cost cost, size_t epochs, double alpha);
+        struct Cost cost, size_t epochs,
+        size_t batch_size, double alpha);
 
 void nn_layer_map_activation(
         double (*activation)(double),

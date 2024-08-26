@@ -19,20 +19,23 @@ Show this message
 \fB\-f\fR, \fB\-\-format\fR=\fI\,FORMAT\/\fR
 Define input or output FILE format if needed
 .TP
+\fB\-O\fR, \fB\-\-only\-out\fR
+Don't show input fields (only works with predict)
+.TP
 \fB\-a\fR, \fB\-\-alpha\fR=\fI\,ALPHA\/\fR
 Learning rate (only works with train)
+.TP
+\fB\-b\fR, \fB\-\-batch\fR=\fI\,INT\/\fR
+Select batch size [default: 32] (only works with train)
+.TP
+\fB\-c\fR, \fB\-\-config\fR=\fI\,FILE\/\fR
+Configuration filepath [default=~/.config/ml/ml.cfg]
 .TP
 \fB\-e\fR, \fB\-\-epochs\fR=\fI\,EPOCHS\/\fR
 Epochs to train the model (only works with train)
 .TP
 \fB\-o\fR, \fB\-\-output\fR=\fI\,FILE\/\fR
 Output file (only works with predict)
-.TP
-\fB\-O\fR, \fB\-\-only\-out\fR
-Don't show input fields (only works with predict)
-.TP
-\fB\-c\fR, \fB\-\-config\fR=\fI\,FILE\/\fR
-Configuration filepath [default=~/.config/ml/ml.cfg]
 .TP
 \fB\-p\fR, \fB\-\-precision\fR=\fI\,INT\/\fR
 Decimals output precision (only works with predict)

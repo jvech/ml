@@ -7,6 +7,7 @@
 struct Configs {
     /* net cfgs */
     size_t epochs;
+    size_t batch_size;
     double alpha;
     char *loss;
     char **input_keys, **label_keys;
