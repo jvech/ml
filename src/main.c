@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
         .epochs = 100,
         .batch_size = 32,
         .alpha = 1e-5,
+        .shuffle = true,
         .config_filepath = "",
         .network_size = 0,
         .only_out = false,
@@ -140,7 +141,8 @@ int main(int argc, char *argv[]) {
                 load_loss(ml_configs),
                 ml_configs.epochs,
                 ml_configs.batch_size,
-                ml_configs.alpha);
+                ml_configs.alpha,
+                ml_configs.shuffle);
         nn_network_write_weights(ml_configs.weights_filepath, network, ml_configs.network_size);
         fprintf(stderr, "weights saved on '%s'\n", ml_configs.weights_filepath);
     } else if (!strcmp("predict", argv[0])) {

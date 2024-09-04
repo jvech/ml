@@ -105,6 +105,7 @@ void usage(int exit_code)
             "  -o, --output=FILE        Output file (only works with predict)\n"
             "  -p, --precision=INT      Decimals output precision (only works with predict)\n"
             "                           [default=auto]\n"
+            "  -S, --no-shuffle         Don't shuffle data each epoch (only works with train)\n"
             "\n"
            );
     exit(exit_code);
@@ -120,6 +121,7 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
         {"epochs",      required_argument,  0, 'e'},
         {"batch",       required_argument,  0, 'b'},
         {"alpha",       required_argument,  0, 'a'},
+        {"no-shuffle",  no_argument,        0, 'S'},
         {"output",      required_argument,  0, 'o'},
         {"config",      required_argument,  0, 'c'},
         {"only-out",    no_argument,        0, 'O'},
@@ -129,7 +131,7 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
     int c;
 
     while (1) {
-        c = getopt_long(argc, argv, "hvOc:e:a:o:i:f:p:b:", long_opts, NULL);
+        c = getopt_long(argc, argv, "hvOSc:e:a:o:i:f:p:b:", long_opts, NULL);
 
         if (c == -1) {
             break;
@@ -159,6 +161,9 @@ void util_load_cli(struct Configs *ml, int argc, char *argv[])
         case 'b':
             if (atoi(optarg) <= 0) die("util_load_cli() Error: batch size must be greater than 0");
             ml->batch_size = (size_t)atol(optarg);
+            break;
+        case 'S':
+            ml->shuffle = false;
             break;
         case 'h':
             usage(0);

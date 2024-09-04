@@ -14,6 +14,7 @@ struct Configs {
     size_t n_input_keys, n_label_keys;
     char *weights_filepath;
     char *config_filepath;
+    bool shuffle;
     /* cli cfgs */
     char *file_format;
     char *in_filepath;
