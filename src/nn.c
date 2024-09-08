@@ -170,6 +170,9 @@ void nn_network_train(
     free(weights);
     free(biases);
 
+    free(input_random);
+    free(labels_random);
+
     return;
 nn_network_train_error:
     perror("nn_network_train() Error");

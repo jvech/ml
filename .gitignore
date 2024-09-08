@@ -11,4 +11,5 @@ utils/*.gpi
 *.bin
 utils/*.py
 tests/*.png
+leaks.log
 issues.txt

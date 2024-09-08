@@ -61,5 +61,12 @@ debug: build
 	gdb -x utils/commands.gdb --tui --args ${BIN} train data/xor.json -e 100
 	@#gdb -x utils/commands.gdb --tui --args ${BIN} predict data/sample_data.json
 
+check_leaks: build
+	valgrind --leak-check=yes \
+			 --log-file=leaks.log \
+			 --leak-check=full \
+			 --show-leak-kinds=all \
+		./${BIN} train -c utils/settings.cfg data/xor.json
+
 clean:
 	@rm $(OBJDIR) -rv

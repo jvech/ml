@@ -152,6 +152,8 @@ int main(int argc, char *argv[]) {
 
     nn_network_free_weights(network, ml_configs.network_size);
     free(network);
+    free(X.data);
+    free(y.data);
     util_free_config(&ml_configs);
     return 0;
 }
