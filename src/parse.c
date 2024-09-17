@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <json-c/json.h>
+#include <errno.h>
 
 #include "util.h"
 #include "parse.h"
@@ -36,37 +37,23 @@ static void json_read(
 static void csv_read(
         FILE *fp,
         Array *input, Array *out,
-        char *in_cols[], size_t in_cols_size,
-        char *out_cols[], size_t out_cols_size,
+        struct Configs cfgs,
         bool read_output,
-        bool has_header,
-        char separator
+        char *separator
         );
 
 static void json_write(
         FILE *fp,
         Array input, Array out,
-        struct Configs cfgs);
+        struct Configs cfgs
+        );
 
 static void csv_write(
         FILE *fp,
         Array input, Array out,
-        bool write_input,
-        char separator,
-        int decimal_precision
+        struct Configs cfgs,
+        char *separator
         );
-
-static void csv_columns_select(
-        double *dst_row, double *src_row,
-        size_t selected_cols[], size_t cols_size,
-        size_t src_cols_number);
-
-static void csv_readline_values(
-        double *num_buffer, size_t num_buffer_length,
-        char *line_buffer, size_t line_number,
-        char separator);
-
-static void csv_keys2cols(size_t cols[], char *keys[], size_t keys_size);
 
 void file_read(
         char *filepath,
@@ -92,11 +79,9 @@ void file_read(
         file_format = file_format_infer(filepath);
     }
 
-    /*
-    if (!strcmp(file_format, "csv"))        csv_read(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, read_output, false, ',');
-    else if (!strcmp(file_format, "tsv"))   csv_read(fp, input, out, in_keys, n_in_keys, out_keys, n_out_keys, read_output, false, '\t');
-    */
-    if (!strcmp(file_format, "json"))  json_read(fp, input, out, ml_config, read_output);
+    if (!strcmp(file_format, "csv"))        csv_read(fp, input, out, ml_config, read_output, ",");
+    else if (!strcmp(file_format, "tsv"))   csv_read(fp, input, out, ml_config, read_output, "\t");
+    else if (!strcmp(file_format, "json"))  json_read(fp, input, out, ml_config, read_output);
     else {
         die("file_read() Error: unable to parse %s files", file_format);
     }
@@ -124,10 +109,8 @@ void file_write(Array input, Array out, struct Configs ml_config)
     if (fp == NULL) die("file_write() Error:");
 
     if (!strcmp(file_format, "json"))       json_write(fp, input, out, ml_config);
-    /*
-    else if (!strcmp(file_format, "csv"))   csv_write(fp, input, out, write_input, ',', decimal_precision);
-    else if (!strcmp(file_format, "tsv"))   csv_write(fp, input, out, write_input, '\t', decimal_precision);
-    */
+    else if (!strcmp(file_format, "csv"))   csv_write(fp, input, out, ml_config, ",");
+    else if (!strcmp(file_format, "tsv"))   csv_write(fp, input, out, ml_config, "\t");
     else {
         die("file_write() Error: unable to write %s files", file_format);
     }
@@ -418,72 +401,159 @@ void json_read(
 }
 
 
-/*
 void csv_read(
         FILE *fp,
-        Array *input, Array *out,
-        char *in_keys[], size_t n_in_cols,
-        char *out_keys[], size_t n_out_cols,
+        Array *input,
+        Array *out,
+        struct Configs cfgs,
         bool read_output,
-        bool has_header, //TODO
-        char separator)
+        char *separator)
 {
-    char line_buffer[1024];
-    char *line_ptr;
-    double *num_buffer;
-    size_t line = 0, num_buffer_length = 1; 
-    size_t *in_cols, *out_cols;
+    char *line = NULL, *line_buffer, **values_buffer;
+    size_t line_number = 0, line_size = 0;
+    size_t n_values_buffer;
+    size_t *in_indexes, *out_indexes;
+    bool has_header = true;
+
+    char **in_keys, **out_keys, **onehot_keys;
+    size_t n_in_keys, n_out_keys, n_onehot_keys;
+
+    in_keys = cfgs.input_keys;
+    out_keys = cfgs.label_keys;
+    onehot_keys = cfgs.onehot_keys;
+
+    n_in_keys = cfgs.n_input_keys;
+    n_out_keys = cfgs.n_label_keys;
+    n_onehot_keys = cfgs.n_onehot_keys;
+
+    n_values_buffer = n_in_keys + n_out_keys;
+    values_buffer = ecalloc(n_values_buffer, sizeof(char *));
+
+    in_indexes = ecalloc(n_in_keys, sizeof(char));
+    out_indexes = ecalloc(n_out_keys, sizeof(char));
 
     if (fp == NULL) die("csv_read() Error:");
 
-    in_cols = ecalloc(n_in_cols, sizeof(size_t));
-    csv_keys2cols(in_cols, in_keys, n_in_cols);
+    input->type = ecalloc(n_in_keys, sizeof(enum ArrayType));
+    out->type = ecalloc(n_out_keys, sizeof(enum ArrayType));
+    input->data = NULL;
+    out->data = NULL;
 
-    out_cols = ecalloc(n_out_cols, sizeof(size_t));
-    csv_keys2cols(out_cols, out_keys, n_out_cols);
+    input->shape[0] = out->shape[0] = 0;
+    input->shape[1] = n_in_keys;
+    out->shape[1] = n_out_keys;
 
-    input->shape[0] = 1;
-    input->shape[1] = n_in_cols;
-    input->data = ecalloc(input->shape[1], sizeof(double));
+    for (size_t i = 0; i < n_in_keys; i++) {
+        int ret = util_get_key_index(in_keys[i], onehot_keys, n_onehot_keys);
+        if (ret >= 0) input->type[i] = ARRAY_ONEHOT;
+    }
 
-    out->shape[0] = 1;
-    out->shape[1] = n_out_cols;
-    out->data = ecalloc(out->shape[1], sizeof(double));
+    for (size_t i = 0; i < n_out_keys; i++) {
+        int ret = util_get_key_index(out_keys[i], onehot_keys, n_onehot_keys);
+        if (ret >= 0) out->type[i] = ARRAY_ONEHOT;
+    }
 
-    fgets(line_buffer, 1024, fp);
-    for (line_ptr = line_buffer; *line_ptr != '\0'; line_ptr++) {
-        if (*line_ptr == separator) {
-            num_buffer_length++;
+    while (getline(&line, &line_size, fp) != -1) {
+        /* Get line values */
+        char *value;
+        size_t cols = 0;
+        line_buffer = line;
+        *(strstr(line, "\n")) = '\0'; //strip new line character e.g ("line text\n" -> "line text")
+        while ((value = strsep(&line_buffer, separator))) {
+            if (cols == n_values_buffer && line_number == 0) {
+                n_values_buffer++;
+                values_buffer = erealloc(values_buffer, n_values_buffer * sizeof(char *));
+            } else if (cols == n_values_buffer) {
+                die("csv_read() Error: line %d has different columns than other lines", line_number);
+            }
+            values_buffer[cols++] = value;
         }
-    }
 
-    num_buffer = ecalloc(num_buffer_length, sizeof(double));
+        /* Set up keys indexes */
+        if (line_number == 0) {
+            size_t i;
+            int key_index;
 
-    csv_readline_values(num_buffer, num_buffer_length, line_buffer, 1, separator);
-    csv_columns_select(input->data + line * input->shape[1], num_buffer, in_cols, n_in_cols, num_buffer_length);
-    if (read_output) {
-        csv_columns_select(out->data + line * out->shape[1], num_buffer, out_cols, n_out_cols, num_buffer_length);
-    }
+            for (i = 0; i < n_in_keys && has_header; i++) {
+                key_index = util_get_key_index(in_keys[i], values_buffer, n_values_buffer);
+                if (key_index == -1) has_header = false;
+            }
 
-    for (line = 1; fgets(line_buffer, 1024, fp) != NULL; line++) {
-        csv_readline_values(num_buffer, num_buffer_length, line_buffer, line+1, separator);
+            for (i = 0; i < n_out_keys && read_output && has_header; i++) {
+                key_index = util_get_key_index(out_keys[i], values_buffer, n_values_buffer);
+                if (key_index == -1) has_header = false;
+            }
 
+            for (i = 0; i < n_in_keys; i++) {
+                key_index = util_get_key_index(in_keys[i], values_buffer, n_values_buffer);
+                in_indexes[i] = has_header ? key_index : i;
+            }
+
+            for (i = 0; i < n_out_keys && read_output; i++) {
+                key_index = util_get_key_index(out_keys[i], values_buffer, n_values_buffer);
+                out_indexes[i] = has_header ? key_index : i + n_in_keys;
+            }
+        }
+
+        if (has_header && !line_number) {
+            line_number++;
+            continue;
+        }
+
+        /* Allocate memory for the data */
+        input->data = erealloc(input->data, (input->shape[0] + 1) * n_in_keys * sizeof(union ArrayValue));
+        out->data = erealloc(out->data, (out->shape[0] + 1) * n_out_keys * sizeof(union ArrayValue));
+
+        /* Fill the data */
+        int ret;
+        size_t i, j, index;
+        for (i = 0; i < n_in_keys; i++) {
+            ret = 0;
+            j = in_indexes[i];
+            index = input->shape[0] * n_in_keys + i;
+            switch (input->type[i]) {
+            case ARRAY_NUMERICAL:
+                ret = sscanf(values_buffer[j], "%lf", &input->data[index].numeric);
+                if (ret < 1) die("csv_read() Error: expecting a number not '%s'", values_buffer[j]);
+                break;
+            case ARRAY_ONEHOT:
+                ret = sscanf(values_buffer[j], "%lf", &input->data[index].numeric);
+                if (ret >= 1) die("csv_read() Error: expecting a string or integer not '%s'", values_buffer[j]);
+                input->data[index].categorical = e_strdup(values_buffer[j]);
+                break;
+            default:
+                die("csv_read() Error: field '%s' has an unexpected type", in_keys[i]);
+            }
+        }
+
+        for (i = 0; i < n_out_keys && read_output; i++) {
+            ret = 0;
+            j = out_indexes[i];
+            index = out->shape[0] * n_out_keys + i;
+            switch (out->type[i]) {
+            case ARRAY_NUMERICAL:
+                ret = sscanf(values_buffer[j], "%lf", &out->data[index].numeric);
+                if (ret < 1) die("csv_read() Error: expecting a number not '%s'", values_buffer[j]);
+                break;
+            case ARRAY_ONEHOT:
+                out->data[index].categorical = e_strdup(values_buffer[j]);
+                break;
+            default:
+                die("csv_read() Error: field '%s' has an unexpected type", out_keys[i]);
+            }
+        }
         input->shape[0]++;
-        input->data = erealloc(input->data, input->shape[0] * input->shape[1] * sizeof(double));
-        csv_columns_select(input->data + line * input->shape[1], num_buffer, in_cols, n_in_cols, num_buffer_length);
-
         out->shape[0]++;
-        out->data = erealloc(out->data, out->shape[0] * out->shape[1] * sizeof(double));
-        if (read_output) {
-            csv_columns_select(out->data + line * out->shape[1], num_buffer, out_cols, n_out_cols, num_buffer_length);
-        }
+        line_number++;
     }
-    free(num_buffer);
-    free(in_cols);
-    free(out_cols);
-    return;
+
+    if (errno != 0) die("csv_read() Error:");
+
+    free(line);
+    free(in_indexes);
+    free(out_indexes);
+    free(values_buffer);
 }
-*/
 
 void json_write(
         FILE *fp,
@@ -554,98 +624,58 @@ void json_write(
     json_object_put(root);
 }
 
-/*
 void csv_write(
         FILE *fp,
         Array input, Array out,
-        bool write_input,
-        char separator,
-        int decimal_precision)
+        struct Configs cfgs,
+        char *separator)
 {
-    size_t line, col, index;
-    for (line = 0; line < input.shape[0]; line++) {
-        if (write_input) {
-            for (col = 0; col < input.shape[1]; col++) {
-                index = input.shape[1] * line + col;
-                fprintf(fp, "%g%c", input.data[index], separator);
+    int decimal_precision = cfgs.decimal_precision;
+    bool write_input = !cfgs.only_out;
+
+    size_t i,j,index;
+
+    for (j = 0; j < cfgs.n_input_keys && write_input; j++) {
+        fprintf(fp, "%s%s", cfgs.input_keys[j], separator);
+    }
+
+    for (j = 0; j < cfgs.n_label_keys; j++) {
+        fprintf(fp, "%s", cfgs.label_keys[j]);
+
+        if (j == cfgs.n_label_keys - 1) fprintf(fp, "\n");
+        else fprintf(fp, "%s", separator);
+    }
+
+    for (i = 0; i < input.shape[0]; i++) {
+        for (j = 0; j < input.shape[1] && write_input; j++) {
+            index = i * out.shape[1] + j;
+            switch (input.type[j] ) {
+            case ARRAY_NUMERICAL:
+                fprintf(fp, "%.*g%s", decimal_precision, input.data[index].numeric, separator);
+                break;
+            case ARRAY_ONEHOT:
+                fprintf(fp, "%s%s", input.data[index].categorical, separator);
+                break;
+            default:
+                die("csv_write() Error: Unexpected type found on field '%s'", cfgs.input_keys[j]);
             }
         }
-        for (col = 0; col < out.shape[1]; col++) {
-            index = out.shape[1] * line + col;
-            fprintf(fp, "%.*g", decimal_precision, out.data[index]);
-            if (col == out.shape[1] - 1) continue;
-            fprintf(fp, "%c", separator);
+
+        for (j = 0; j < out.shape[1]; j++) {
+            index = i * out.shape[1] + j;
+            switch (out.type[j] ) {
+            case ARRAY_NUMERICAL:
+                fprintf(fp, "%.*g", decimal_precision, out.data[index].numeric);
+                break;
+            case ARRAY_ONEHOT:
+                fprintf(fp, "%s", out.data[index].categorical);
+                break;
+            default:
+                die("csv_write() Error: Unexpected type found on field '%s'", cfgs.label_keys[j]);
+            }
+            if (j == out.shape[1] - 1) fprintf(fp, "\n");
+            else fprintf(fp, "%s", separator);
         }
-        fprintf(fp, "\n");
-    }
-}
-*/
-
-void csv_columns_select(
-        double *dst_row, double *src_row,
-        size_t selected_cols[], size_t cols_size,
-        size_t src_cols_number)
-{
-    size_t i, selected_col;
-    for (i = 0; i < cols_size; i++) {
-
-        if (selected_cols[i] == 0) {
-            die("csv_columns_select() Error: invalid %zu column, use 1-indexing",
-                selected_cols[i]);
-        }
-
-        selected_col = selected_cols[i] - 1;
-        if (selected_col >= src_cols_number) {
-            die("csv_columns_select() Error: "
-                "selected column %zu outranges row columns size %zu",
-                selected_cols[i], src_cols_number);
-        }
-        dst_row[i] = src_row[selected_col];
-    }
-}
-
-void csv_readline_values(
-        double *num_buffer, size_t num_buffer_length,
-        char *line_buffer, size_t line_number,
-        char separator)
-{
-    char *line_ptr;
-    size_t col;
-    int offset;
-
-    for (col = 0, offset = 0, line_ptr = line_buffer;
-         col < num_buffer_length
-         && sscanf(line_ptr, "%lf%n", num_buffer+col, &offset) >= 1;
-         line_ptr+=offset, col++) {
-        // Checks 
-        if (*(line_ptr + offset) == separator || *(line_ptr + offset) == '\n') {
-            offset++;
-        } else {
-            die("csv_readline_values() Error: on line %zu format separator must be '%c' not '%c'",
-                line_number, separator, *(line_ptr + offset));
-        }
-    }
-
-    if (col < num_buffer_length && *line_ptr == '\0') {
-        die("csv_readline_values() Error: line %zu seems to have less than %zu columns",
-            line_number, num_buffer_length);
-    } else if (col == num_buffer_length && *line_ptr != '\0') {
-        die("csv_readline_values() Error: line %zu seems to have more than %zu columns",
-            line_number, num_buffer_length);
-    } else if (*line_ptr != '\0') {
-        die("csv_readline_values() Error: "
-            "line %zu format is invalid start checking from column %zu",
-            line_number, col+1);
-    }
-}
-
-void csv_keys2cols(size_t cols[], char *keys[], size_t keys_size)
-{
-    size_t i;
-    int ret;
-    for (i = 0; i < keys_size; i++) {
-        ret = sscanf(keys[i], "%zu", cols + i);
-        if (ret != 1) die("csv_keys2col() Error: '%s' can not be converted to index", keys[i]);
     }
 }
 
@@ -663,94 +693,3 @@ char * file_format_infer(char *filename)
     file_format = ptr + 1;
     return file_format;
 }
-
-#ifdef PARSE_TEST
-#include <assert.h>
-#include <string.h>
-/*
- * compile: clang -Wall -Wextra -g -DPARSE_TEST -o objs/test_parse src/util.c src/parse.c $(pkg-config --libs-only-l json-c)
- */
-size_t parse_keys(char *keys[], char *argv, char key_buffer[512])
-{
-    size_t keys_length = 0;
-    char *keys_buffer, *key;
-
-    keys_buffer = e_strdup(argv);
-    key = strtok_r(keys_buffer, ", ", &key_buffer);
-    keys[keys_length++] = e_strdup(key);
-    while ((key = strtok_r(NULL, ", ", &key_buffer))) {
-        if (keys_length + 1 > 32) {
-            die("parse_keys() Error: keys_buffer overflow you can put more "
-                "than 32 keys using this test program");
-        }
-        keys[keys_length++] = e_strdup(key);
-    }
-    free(keys_buffer);
-    return keys_length;
-}
-
-int main(int argc, char *argv[]) {
-    char *in_file, *out_file, *format;
-    size_t i, j;
-
-    if (argc != 5 && argc != 6) {
-        fprintf(stderr,
-                "Usage: parse_test IN_FILE OUT_FILE IN_KEYS OUT_KEYS [FORMAT]\n"
-                "\nKeys format:\n"
-                "  IN_KEYS: in_key1, in_key2, ...\n"
-                "  OUT_KEYS: out_key1, out_key2, ...\n\n");
-        return 1;
-    }
-
-    in_file = argv[1];
-    out_file = argv[2];
-    format = NULL;
-    if (argc == 6) {
-        format = argv[5];
-    }
-
-    Array X, y;
-    char *in_cols[32], *out_cols[32], keys_buffer[512];
-    size_t n_in_cols, n_out_cols;
-
-    n_in_cols = parse_keys(in_cols, argv[3], keys_buffer);
-    n_out_cols = parse_keys(out_cols, argv[4], keys_buffer);
-
-    struct Configs ml_config = {
-        .in_filepath = in_file,
-        .out_filepath = out_file,
-        .input_keys = in_cols,
-        .label_keys = out_cols,
-        .n_input_keys = n_in_cols,
-        .n_label_keys = n_out_cols,
-        .file_format = format,
-        .only_out = false,
-        .decimal_precision = -1
-    };
-
-    file_read(in_file, &X, &y, ml_config, true);
-
-    for (i = 0; i < X.shape[0]; i++) {
-        for (j = 0; j < X.shape[1]; j++) {
-            fprintf(stderr, "%.2e\t", X.data[i * X.shape[1] + j]);
-        }
-
-        for (j = 0; j < y.shape[1]; j++) {
-            if (j == 0) fprintf(stderr, "|\t");
-            fprintf(stderr, "%.2e", y.data[i * y.shape[1] + j]);;
-            if (j < y.shape[1] - 1) printf("\t");
-        }
-        fprintf(stderr, "\n");
-
-    }
-
-    // use input format if format variable is not defined
-    format = (!format && !strcmp(out_file, "-")) ? file_format_infer(in_file) : format;
-    file_write(X, y, ml_config);
-    for (i = 0; i < n_in_cols; i++) free(in_cols[i]);
-    for (i = 0; i < n_out_cols; i++) free(out_cols[i]);
-
-    return 0;
-}
-
-#endif
