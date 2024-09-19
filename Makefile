@@ -3,8 +3,10 @@ include config.mk
 # you can `export DEV_MODE=true` to compile the binaries with more warnings and debugging support
 ifdef DEV_MODE
 CFLAGS 	= -std=gnu11 -Wall -Wextra -g
+LDFLAGS = #-fsanitize=address
 else
 CFLAGS 	= -std=gnu11 -Wall -O2
+LDFLAGS =
 endif
 
 CC 		= clang
@@ -27,7 +29,7 @@ $(OBJDIR)/%.o: src/%.c $(HEADERS)
 	${CC} -c -o $@ $< ${CFLAGS}
 
 build: $(OBJS)
-	${CC} ${DLIBS} -o ${BIN} ${OBJS}
+	${CC} ${DLIBS} -o ${BIN} ${OBJS} ${LDFLAGS}
 
 install: all
 	@# binary
@@ -58,15 +60,15 @@ test_%: src/%.c $(OBJDIR)
 	$(shell sed -n 's/.*compile: clang/clang/;/clang/p' $<)
 
 debug: build
-	gdb -x utils/commands.gdb --tui --args ${BIN} train data/xor.json -e 100
+	gdb --tui --args ./${BIN} train -c utils/settings.cfg data/xor.csv
 	@#gdb -x utils/commands.gdb --tui --args ${BIN} predict data/sample_data.json
 
 check_leaks: build
-	valgrind --leak-check=yes \
-			 --log-file=leaks.log \
+	setarch x86_64 -R valgrind --log-file=leaks.log \
 			 --leak-check=full \
 			 --show-leak-kinds=all \
-		./${BIN} train -c utils/settings.cfg data/xor.json
+			 --track-origins=yes \
+		./${BIN} train -c utils/settings.cfg data/xor.csv
 
 clean:
 	@rm $(OBJDIR) -rv

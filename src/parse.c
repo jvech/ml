@@ -429,8 +429,8 @@ void csv_read(
     n_values_buffer = n_in_keys + n_out_keys;
     values_buffer = ecalloc(n_values_buffer, sizeof(char *));
 
-    in_indexes = ecalloc(n_in_keys, sizeof(char));
-    out_indexes = ecalloc(n_out_keys, sizeof(char));
+    in_indexes = ecalloc(n_in_keys, sizeof(size_t));
+    out_indexes = ecalloc(n_out_keys, sizeof(size_t));
 
     if (fp == NULL) die("csv_read() Error:");
 
@@ -486,12 +486,12 @@ void csv_read(
 
             for (i = 0; i < n_in_keys; i++) {
                 key_index = util_get_key_index(in_keys[i], values_buffer, n_values_buffer);
-                in_indexes[i] = has_header ? key_index : i;
+                in_indexes[i] = has_header ? (size_t)key_index : i;
             }
 
             for (i = 0; i < n_out_keys && read_output; i++) {
                 key_index = util_get_key_index(out_keys[i], values_buffer, n_values_buffer);
-                out_indexes[i] = has_header ? key_index : i + n_in_keys;
+                out_indexes[i] = has_header ? (size_t)key_index : i + n_in_keys;
             }
         }
 
