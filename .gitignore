@@ -5,7 +5,8 @@ objs/
 doc/*
 !doc/*.pdf
 !doc/*.tex
-!doc/*.1
+!doc/ml.1
+!doc/ml_config.5
 *.gdb
 utils/*.gpi
 *.bin

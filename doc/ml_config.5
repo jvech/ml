@@ -1,0 +1,179 @@
+.TH ML_CONFIG "5" "September 2024" "ml 0.5.0" "Configuration file"
+
+.SH NAME
+ml_config - ml configuration file
+
+.SH DESCRIPTION
+.PP
+ml configuration file format consists of lines of key-value options grouped in
+multiple sections as is shown below in the demo configuration file:
+.PP
+
+.EX
+.RS 4
+; comments
+[net]
+loss = square ; options (square)
+epochs = 500 ; comment
+batch = 32
+alpha = 1
+weights_path = utils/weights.bin
+inputs = sepal_length,sepal_width,petal_length,petal_width
+labels = species
+
+
+[categorical_fields]
+species=setosa,versicolor,virginica
+
+[preprocessing]
+onehot=species
+
+
+[layer]
+neurons=10
+; options (relu, sigmoid, softplus, leaky_relu, linear, tanh)
+activation=sigmoid
+
+[outlayer]
+activation = sigmoid
+.RE
+.EE
+
+.SS [net]
+.PP
+In this section you describe general network configurations more specifically
+its training parameter, weights filepath and input and output columns.
+
+.TS
+box nospaces center tab(|);
+L L L
+Lb L L.
+Key | Description | Type
+_
+alpha           | learning rate     | decimal
+loss            | loss function     | option (string)
+epochs          | training epochs   | integer
+batch           | batch size        | integer
+weights_path    | weights filepath  | string
+inputs          | input fields      | list (string)
+labels          | label fields      | list (string)
+.TE
+
+.SS [preprocessing]
+Indicate preprocessing operations for input or label fields
+
+
+.TS
+box nospaces center tab(|);
+L L L
+Lb L L.
+Key | Description | Type
+_
+onehot  | onehot columns | list (string)
+.TE
+
+.PP
+Categorical preprocessing like operations
+.B onehot
+require to have their fields specified in
+.B [categorical_fields].
+otherwise the program will prompt you an error message.
+
+
+.SS [categorical_fields]
+.PP
+This section is kind of special, here you must set the possible values a field
+can take. taking the first example as reference:
+
+.EX
+.RS
+[categorical_fields]
+species=setosa,versicolor,virginica
+.RE
+.EE
+
+the column
+.B species
+can only take the values
+.B setosa,versicolor
+and
+.B virginica,
+if the program encounters a different value it will stop its execution.
+
+.SS [layer]
+.SS [outlayer]
+.PP
+Create a layer component.
+.B [outlayer]
+section does not require
+.B neurons
+parameter.
+.TS
+box nospaces center tab(:);
+L L L
+Lb L L.
+Key : Description : Type
+_
+neurons     :  number of neurons            : integer
+activation  :  activation function          : option (string)
+.TE
+
+.PP
+The topology of the network depends of the order in which
+.B [layer]
+, is put on the file, the program will load each
+.B [layer]
+section sequentially. For instance the following example:
+.PP
+
+.EX
+.RS
+[layer]
+neurons=10
+activation=relu
+
+[layer]
+neurons=20
+activation=sigmoid
+
+[outlayer]
+activation = sigmoid
+.RE
+.EE
+
+will produce a network with the following topology
+.TS
+nospaces center tab(:);
+Lb | Lb
+L | L.
+Activation : Dimension
+_
+ReLu        : in \[mu] 10
+Sigmoid     : 10 \[mu] 20
+outlayers   : 20 \[mu] out
+.TE
+
+.SH FILES
+.PP
+The configuration file is searched in the following order:
+.PP
+.PD 0
+.IP \(bu 4
+CLI filepath
+.IP \(bu 4
+ML_CONFIG_PATH env variable
+.IP \(bu 4 
+$HOME/.\&config/ml/ml.cfg
+.PP
+
+.SH AUTHOR
+Written by jvech
+
+.SH COPYRIGHT
+Copyright \(co 2024  jvech
+
+.PP
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.

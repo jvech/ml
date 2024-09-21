@@ -31,9 +31,6 @@
 
 #define MAX_FILE_SIZE 536870912 //1<<29; 0.5 GiB
 
-#define ARRAY_SIZE(x, type) sizeof(x) / sizeof(type)
-
-
 void load_config(struct Configs *cfg, int n_args, ...)
 {
     char *filepath;

@@ -38,6 +38,7 @@ install: all
 	@#man page
 	install -d $(MANPREFIX)/man1
 	install -m 644 doc/ml.1 $(MANPREFIX)/man1/ml.1
+	install -m 644 doc/ml_config.5 $(MANPREFIX)/man5/ml_config.5
 
 install_config:
 	mkdir -p ~/.config/ml
@@ -46,6 +47,7 @@ install_config:
 uninstall:
 	rm -v $(BINPREFIX)/${BIN}
 	rm -v $(MANPREFIX)/man1/ml.1
+	rm -v $(MANPREFIX)/man5/ml_config.5
 
 man: build
 	help2man -N ./ml -I doc/man.txt > doc/ml.1
